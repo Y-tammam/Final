@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Luxury palette - Soft Alabaster / Bronze Charcoal / Champagne Gold */
+    --background: 36 33% 97%;          /* #FAF8F5 warm cream */
+    --foreground: 0 0% 10%;            /* deep charcoal */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 0% 10%;               /* bronze charcoal #1A1A1A */
+    --primary-foreground: 43 74% 66%;  /* champagne gold text on dark */
+    --secondary: 36 25% 92%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 36 20% 93%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 43 74% 66%;              /* champagne gold #D4AF37 */
+    --accent-foreground: 0 0% 10%;
+    --destructive: 354 56% 48%;        /* muted crimson */
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 52% 38%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 80% 52%;
+    --warning-foreground: 0 0% 10%;
+    --border: 36 18% 86%;
+    --input: 36 18% 86%;
+    --ring: 43 74% 66%;
+    --chart-1: 43 74% 66%;             /* gold */
+    --chart-2: 354 56% 48%;            /* crimson */
+    --chart-3: 0 0% 30%;               /* charcoal */
+    --chart-4: 200 30% 50%;            /* muted blue */
+    --chart-5: 142 40% 55%;            /* sage */
+    --radius: 0.25rem;
+  }
+  .dark {
+    --background: 0 0% 7%;
+    --foreground: 36 33% 94%;
+    --card: 0 0% 10%;
+    --card-foreground: 36 33% 94%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 36 33% 94%;
+    --primary: 43 74% 66%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 36 33% 94%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 43 74% 66%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 354 56% 58%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 52% 48%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 80% 62%;
+    --warning-foreground: 0 0% 10%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 43 74% 66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "cv01";
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-playfair), Georgia, serif;
+  }
+  .font-body {
+    font-family: var(--font-jakarta), var(--font-cairo), system-ui, sans-serif;
+  }
+  .font-arabic {
+    font-family: var(--font-cairo), var(--font-readex), system-ui, sans-serif;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .glass {
+    background: rgba(250, 248, 245, 0.7);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .glass-dark {
+    background: rgba(26, 26, 26, 0.6);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .gold-line {
+    background: linear-gradient(90deg, transparent, hsl(43 74% 66%), transparent);
+  }
+  .hover-zoom img {
+    transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .hover-zoom:hover img {
+    transform: scale(1.06);
+  }
+  .shimmer {
+    background: linear-gradient(110deg, hsl(36 20% 93%) 8%, hsl(36 25% 88%) 18%, hsl(36 20% 93%) 33%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
+  }
+  .fade-up {
+    animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .fade-in {
+    animation: fadeIn 0.6s ease both;
+  }
+  .scale-in {
+    animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* RTL friendly number rendering */
+.num-rtl {
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: hsl(36 20% 93%); }
+::-webkit-scrollbar-thumb { background: hsl(36 18% 70%); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(43 40% 55%); }
