@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Search, Edit2, Trash2, Image as ImageIcon, Loader2, X } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { priceEGP } from "@/lib/format";
 import type { Product } from "@/lib/types";
