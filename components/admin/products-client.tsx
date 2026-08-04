@@ -3,19 +3,12 @@
 import { useState } from "react";
 import { Plus, Search, Edit2, Trash2, Image as ImageIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Product } from "@/lib/types";
 
 interface Category {
   id: string;
-  name: string;
-}
-
-interface Product {
-  id: string;
-  name_ar?: string;
   name?: string;
-  price: number;
-  category?: string;
-  images?: string[];
+  name_ar?: string;
 }
 
 interface ProductsClientProps {
@@ -25,10 +18,7 @@ interface ProductsClientProps {
 
 export function ProductsClient({
   initialProducts = [],
-  categories: initialCategories = [
-    { id: "1", name: "ملابس رجالي" },
-    { id: "2", name: "ملابس حريمي" },
-  ],
+  categories: initialCategories = [],
 }: ProductsClientProps) {
   const { toast } = useToast();
 
@@ -36,24 +26,25 @@ export function ProductsClient({
   const [categoriesList, setCategoriesList] = useState<Category[]>(initialCategories);
   const [search, setSearch] = useState("");
 
-  // حالات المودال (Modal) والنموذج
+  // حالات المودال والنموذج
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // حالات بيانات المدخلات (Form)
+  // حقول البيانات
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState<number | "">("");
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
 
-  // حالة إضافة قسم جديد
+  // إضافة قسم جديد
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
-  // تصفية المنتجات بحسب البحث
-  const filteredProducts = products.filter((p) =>
-    (p.name_ar || p.name || "").toLowerCase().includes(search.toLowerCase())
-  );
+  // تصفية المنتجات للبحث
+  const filteredProducts = products.filter((p) => {
+    const name = p.title_ar || p.title || (p as any).name_ar || (p as any).name || "";
+    return name.toLowerCase().includes(search.toLowerCase());
+  });
 
   // فتح المودال للإضافة
   const handleOpenAdd = () => {
@@ -69,9 +60,9 @@ export function ProductsClient({
   // فتح المودال للتعديل
   const handleOpenEdit = (product: Product) => {
     setEditingProduct(product);
-    setProductName(product.name_ar || product.name || "");
-    setPrice(product.price);
-    setCategory(product.category || "");
+    setProductName(product.title_ar || product.title || (product as any).name_ar || (product as any).name || "");
+    setPrice(product.price_egp ?? (product as any).price ?? 0);
+    setCategory((product as any).category || (product as any).category_id || "");
     setImageUrl(product.images?.[0] || "");
     setIsAddingCategory(false);
     setIsModalOpen(true);
@@ -102,10 +93,11 @@ export function ProductsClient({
     const newCat: Category = {
       id: Date.now().toString(),
       name: newCategoryName.trim(),
+      name_ar: newCategoryName.trim(),
     };
 
     setCategoriesList((prev) => [...prev, newCat]);
-    setCategory(newCat.name);
+    setCategory(newCat.name || newCat.name_ar || "");
     setNewCategoryName("");
     setIsAddingCategory(false);
 
@@ -119,7 +111,7 @@ export function ProductsClient({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!productName || !price || !category) {
+    if (!productName || price === "" || !category) {
       toast({
         variant: "destructive",
         title: "بيانات ناقصة",
@@ -129,18 +121,20 @@ export function ProductsClient({
     }
 
     if (editingProduct) {
-      // تعديل منتج قائم
       setProducts((prev) =>
         prev.map((p) =>
           p.id === editingProduct.id
-            ? {
+            ? ({
                 ...p,
+                title_ar: productName,
+                title: productName,
                 name_ar: productName,
                 name: productName,
+                price_egp: Number(price),
                 price: Number(price),
                 category,
                 images: imageUrl ? [imageUrl] : p.images,
-              }
+              } as Product)
             : p
         )
       );
@@ -149,16 +143,18 @@ export function ProductsClient({
         description: "تم تحديث بيانات المنتج بنجاح",
       });
     } else {
-      // إضافة منتج جديد
-      const newProduct: Product = {
+      const newProduct: any = {
         id: Date.now().toString(),
+        title_ar: productName,
+        title: productName,
         name_ar: productName,
         name: productName,
+        price_egp: Number(price),
         price: Number(price),
         category,
         images: imageUrl ? [imageUrl] : [],
       };
-      setProducts((prev) => [newProduct, ...prev]);
+      setProducts((prev) => [newProduct as Product, ...prev]);
       toast({
         title: "تمت الإضافة",
         description: "تم إضافة المنتج الجديد بنجاح",
@@ -209,7 +205,11 @@ export function ProductsClient({
         ) : (
           <div className="divide-y divide-border">
             {filteredProducts.map((product) => {
-              const displayName = product.name_ar || product.name || "منتج بدون اسم";
+              const displayName =
+                product.title_ar || product.title || (product as any).name_ar || (product as any).name || "منتج بدون اسم";
+              const displayPrice = product.price_egp ?? (product as any).price ?? 0;
+              const displayCategory = (product as any).category || "";
+
               return (
                 <div
                   key={product.id}
@@ -230,7 +230,7 @@ export function ProductsClient({
                     <div>
                       <h3 className="font-semibold text-sm">{displayName}</h3>
                       <p className="text-xs text-muted-foreground">
-                        {product.price} ج.م {product.category && `• ${product.category}`}
+                        {displayPrice} ج.م {displayCategory && `• ${displayCategory}`}
                       </p>
                     </div>
                   </div>
@@ -258,11 +258,10 @@ export function ProductsClient({
         )}
       </div>
 
-      {/* 🟢 المودال (نافذة إضافة / تعديل منتج) */}
+      {/* نافذة الإضافة / التعديل (Modal) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg max-w-md w-full p-6 shadow-lg space-y-4 relative animate-in fade-in zoom-in-95 duration-150">
-            {/* عنوان المودال ورر الإغلاق */}
+          <div className="bg-background border border-border rounded-lg max-w-md w-full p-6 shadow-lg space-y-4 relative">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <h2 className="text-base font-bold">
                 {editingProduct ? "تعديل بيانات المنتج" : "إضافة منتج جديد"}
@@ -276,7 +275,6 @@ export function ProductsClient({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* اسم المنتج */}
               <div>
                 <label className="block text-xs font-semibold mb-1">اسم المنتج *</label>
                 <input
@@ -289,7 +287,6 @@ export function ProductsClient({
                 />
               </div>
 
-              {/* اختيار القسم + إضافة قسم جديد */}
               <div>
                 <label className="block text-xs font-semibold mb-1">القسم *</label>
                 {!isAddingCategory ? (
@@ -301,11 +298,14 @@ export function ProductsClient({
                       className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="">-- اختر القسم --</option>
-                      {categoriesList.map((cat) => (
-                        <option key={cat.id} value={cat.name}>
-                          {cat.name}
-                        </option>
-                      ))}
+                      {categoriesList.map((cat) => {
+                        const name = cat.name_ar || cat.name || "";
+                        return (
+                          <option key={cat.id} value={name}>
+                            {name}
+                          </option>
+                        );
+                      })}
                     </select>
                     <button
                       type="button"
@@ -342,7 +342,6 @@ export function ProductsClient({
                 )}
               </div>
 
-              {/* السعر */}
               <div>
                 <label className="block text-xs font-semibold mb-1">السعر (ج.م) *</label>
                 <input
@@ -355,7 +354,6 @@ export function ProductsClient({
                 />
               </div>
 
-              {/* رابط الصورة */}
               <div>
                 <label className="block text-xs font-semibold mb-1">رابط الصورة (URL)</label>
                 <input
@@ -367,7 +365,6 @@ export function ProductsClient({
                 />
               </div>
 
-              {/* أزرار الإجراءات */}
               <div className="flex justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
