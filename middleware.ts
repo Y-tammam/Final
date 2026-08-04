@@ -53,12 +53,18 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // 2) فحص الدور (role) من جدول profiles
-if (user.user_metadata?.role !== 'admin') {
-  const homeUrl = new URL('/', request.url);
-  return NextResponse.redirect(homeUrl);
-}
+    // 2) فحص الأدمن الحقيقي عن طريق is_admin() في قاعدة البيانات.
+    // ملحوظة أمنية: مينفعش نعتمد على user.user_metadata?.role هنا لأن
+    // الحقل ده قابل للتعديل من المستخدم نفسه من المتصفح (supabase.auth.updateUser).
+    // is_admin() بتتحقق من جدول admin_users المقفول بـ RLS، وهو مصدر
+    // الحقيقة الوحيد لتحديد الأدمن. الحماية الفعلية للبيانات موجودة أصلاً
+    // في سياسات RLS نفسها، والفحص هنا للتوجيه (UX) بس.
+    const { data: isAdmin, error } = await supabase.rpc('is_admin');
 
+    if (error || !isAdmin) {
+      const homeUrl = new URL('/', request.url);
+      return NextResponse.redirect(homeUrl);
+    }
   }
 
   return response;
