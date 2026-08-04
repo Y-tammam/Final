@@ -9,8 +9,8 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export function ProductsClient({ products, categories: initialCategories }: { products: Product[]; categories: Category[] }) {
-  const [list, setList] = useState(products);
+export function ProductsClient({ initialProducts, categories: initialCategories }: { initialProducts: Product[]; categories: Category[] }) {
+  const [list, setList] = useState(initialProducts);
   const [categories, setCategories] = useState(initialCategories);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Product | null>(null);
