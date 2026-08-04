@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,30 +12,47 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
 
+  // isAdmin: null = لسه بنتحقق، true/false = النتيجة الحقيقية من الداتابيز.
+  // ملحوظة أمنية: بنعتمد على is_admin() (RPC بيقرا جدول admin_users
+  // المقفول بـ RLS) بدل user.user_metadata?.role لأن الأخير قابل
+  // للتعديل من المستخدم نفسه من المتصفح ومكنش بيحمي حاجة فعلياً.
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+
   useEffect(() => {
-    if (!loading) {
-      // 1. لو مش مسجل دخول أصلًا
+    let active = true;
+
+    async function checkAdmin() {
+      if (loading) return;
+
       if (!user) {
+        setIsAdmin(false);
+        setCheckingAdmin(false);
         router.replace('/admin/login');
         return;
       }
 
-      // 2. 🔥 الفحص الحاسمي: التحقق هل الحساب أدمن أم عميل عادي؟
-      const role = user.user_metadata?.role;
+      const { data, error } = await supabase.rpc('is_admin');
+      if (!active) return;
 
-      if (role !== 'admin') {
-        // لو عميل عادي حاول يكتب /admin، نطرده ونوجهه لصفحة الدخول
+      const adminConfirmed = !error && data === true;
+      setIsAdmin(adminConfirmed);
+      setCheckingAdmin(false);
+
+      if (!adminConfirmed) {
         toast.error('عذراً، هذا الحساب ليس لديه صلاحيات لوحة التحكم');
-        if (signOut) signOut();
+        if (signOut) await signOut();
         router.replace('/admin/login');
       }
     }
+
+    checkAdmin();
+    return () => {
+      active = false;
+    };
   }, [loading, user, router, signOut]);
 
-  // فحص هل هو أدمن فعلاً لعرض محتوى الصفحة
-  const isAdmin = user?.user_metadata?.role === 'admin';
-
-  if (loading || !user || !isAdmin) {
+  if (loading || checkingAdmin || !user || !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
