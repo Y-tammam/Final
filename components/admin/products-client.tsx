@@ -6,27 +6,27 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { priceEGP } from "@/lib/format";
 import type { Product } from "@/lib/types";
-import { useRouter } from "next/navigation"; // تأكد من استيراد useRouter في الأعلى
-
-export function ProductsClient({ initialProducts = [], categories = [] }: ProductsClientProps) {
-  const router = useRouter(); // 👈 إضافة الـ router
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  // ... باقي الكود كالمعتاد
+import { ProductForm } from "./ProductForm"; // استدعاء نموذج المنتجات الخاص بك
 
 interface ProductsClientProps {
   initialProducts?: Product[];
   categories?: { id: string; name_ar: string; slug: string }[];
 }
 
+export function ProductsClient({ initialProducts = [], categories = [] }: ProductsClientProps) {
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // --- الإضافة 1: إضافة قسم جديد ---
+  // حالة فتح نافذة إضافة منتج جديد
+  const [showProductModal, setShowProductModal] = useState(false);
+
+  // إضافة قسم جديد
   const [categoriesList, setCategoriesList] = useState(categories);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCatName, setNewCatName] = useState("");
 
-  // --- الإضافة 2: رفع الصور ---
+  // رفع الصور
   const [showImageModal, setShowImageModal] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
@@ -47,7 +47,6 @@ interface ProductsClientProps {
     toast.success("تم حذف المنتج");
   };
 
-  // دالة إضافة قسم جديد
   const handleAddCategory = () => {
     if (!newCatName.trim()) {
       toast.error("يرجى إدخال اسم القسم");
@@ -64,7 +63,6 @@ interface ProductsClientProps {
     setShowCategoryModal(false);
   };
 
-  // دالة اختيار صورة من الجهاز
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -108,9 +106,10 @@ interface ProductsClientProps {
             رفع صورة
           </button>
 
+          {/* زر إضافة منتج جديد (يفتح النافذة مباشرة) */}
           <button
-            onClick={() => toast.info("استخدم زر الإضافة لمتابعة العمل")}
-            className="bg-primary text-primary-foreground px-4 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm font-medium w-fit"
+            onClick={() => setShowProductModal(true)}
+            className="bg-primary text-primary-foreground px-4 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm font-medium w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             إضافة منتج جديد
@@ -168,7 +167,7 @@ interface ProductsClientProps {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => toast.info("تعديل المنتج قريباً")}
+                      onClick={() => setShowProductModal(true)}
                       className="p-2 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"
                       aria-label="تعديل"
                     >
@@ -193,6 +192,22 @@ interface ProductsClientProps {
           </div>
         )}
       </div>
+
+      {/* 🔴 مودال نموذج إضافة منتج جديد */}
+      {showProductModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-background border border-border rounded-lg max-w-2xl w-full p-6 space-y-4 relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <h3 className="text-base font-bold">إضافة منتج جديد</h3>
+              <button onClick={() => setShowProductModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <ProductForm categories={categoriesList} />
+          </div>
+        </div>
+      )}
 
       {/* 🔴 مودال إضافة قسم جديد */}
       {showCategoryModal && (
