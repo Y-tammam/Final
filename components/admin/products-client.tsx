@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Edit2, Trash2, Image as ImageIcon, Loader2, X, Upload } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Image as ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { priceEGP } from "@/lib/format";
 import type { Product } from "@/lib/types";
-import { ProductForm } from "components/admin/ProductFormModal"; // استدعاء نموذج المنتجات الخاص بك
+import { ProductFormModal } from "./ProductFormModal";
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 interface ProductsClientProps {
   initialProducts?: Product[];
@@ -18,17 +23,11 @@ export function ProductsClient({ initialProducts = [], categories = [] }: Produc
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // حالة فتح نافذة إضافة منتج جديد
-  const [showProductModal, setShowProductModal] = useState(false);
-
-  // إضافة قسم جديد
-  const [categoriesList, setCategoriesList] = useState(categories);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [newCatName, setNewCatName] = useState("");
-
-  // رفع الصور
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  // حالة التحكم في النافذة (Modal)
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [existingCategories, setExistingCategories] = useState<Category[]>(
+    categories.map((c) => ({ id: c.id, name: c.name_ar }))
+  );
 
   const filteredProducts = products.filter((p) =>
     (p.title_ar || "").toLowerCase().includes(search.toLowerCase())
@@ -47,34 +46,31 @@ export function ProductsClient({ initialProducts = [], categories = [] }: Produc
     toast.success("تم حذف المنتج");
   };
 
-  const handleAddCategory = () => {
-    if (!newCatName.trim()) {
-      toast.error("يرجى إدخال اسم القسم");
-      return;
-    }
-    const createdCat = {
+  // إضافة قسم جديد من المودال
+  const handleAddCategory = (newCategoryName: string) => {
+    const newCat = {
       id: `cat-${Date.now()}`,
-      name_ar: newCatName.trim(),
-      slug: newCatName.trim().toLowerCase().replace(/\s+/g, "-"),
+      name: newCategoryName,
     };
-    setCategoriesList((prev) => [...prev, createdCat]);
-    toast.success(`تمت إضافة قسم "${createdCat.name_ar}" بنجاح`);
-    setNewCatName("");
-    setShowCategoryModal(false);
+    setExistingCategories((prev) => [...prev, newCat]);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // عند تقديم النموذج وإضافة منتج
+  const handleAddProductSubmit = (data: {
+    title: string;
+    price: number;
+    stock: number;
+    category: string;
+    image: string;
+  }) => {
+    const newProduct = {
+      id: Date.now().toString(),
+      title_ar: data.title,
+      price_egp: data.price,
+      images: [data.image],
+    } as unknown as Product;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        setUploadedImage(reader.result);
-        toast.success("تم تحميل الصورة بنجاح");
-      }
-    };
-    reader.readAsDataURL(file);
+    setProducts((prev) => [newProduct, ...prev]);
   };
 
   return (
@@ -87,34 +83,14 @@ export function ProductsClient({ initialProducts = [], categories = [] }: Produc
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* زر إضافة قسم جديد */}
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            className="bg-secondary text-secondary-foreground px-3 py-2.5 rounded-md hover:bg-secondary/80 transition-colors flex items-center gap-2 text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            إضافة قسم
-          </button>
-
-          {/* زر رفع صورة */}
-          <button
-            onClick={() => setShowImageModal(true)}
-            className="bg-secondary text-secondary-foreground px-3 py-2.5 rounded-md hover:bg-secondary/80 transition-colors flex items-center gap-2 text-sm font-medium"
-          >
-            <Upload className="w-4 h-4" />
-            رفع صورة
-          </button>
-
-          {/* زر إضافة منتج جديد (يفتح النافذة مباشرة) */}
-          <button
-            onClick={() => setShowProductModal(true)}
-            className="bg-primary text-primary-foreground px-4 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm font-medium w-fit cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            إضافة منتج جديد
-          </button>
-        </div>
+        {/* زر الفتح الشغال ✅ */}
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-primary-foreground px-4 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm font-medium w-fit cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          إضافة منتج جديد
+        </button>
       </div>
 
       <div className="relative">
@@ -167,7 +143,7 @@ export function ProductsClient({ initialProducts = [], categories = [] }: Produc
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => setShowProductModal(true)}
+                      onClick={() => setIsModalOpen(true)}
                       className="p-2 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"
                       aria-label="تعديل"
                     >
@@ -193,100 +169,14 @@ export function ProductsClient({ initialProducts = [], categories = [] }: Produc
         )}
       </div>
 
-      {/* 🔴 مودال نموذج إضافة منتج جديد */}
-      {showProductModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-background border border-border rounded-lg max-w-2xl w-full p-6 space-y-4 relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <h3 className="text-base font-bold">إضافة منتج جديد</h3>
-              <button onClick={() => setShowProductModal(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <ProductForm categories={categoriesList} />
-          </div>
-        </div>
-      )}
-
-      {/* 🔴 مودال إضافة قسم جديد */}
-      {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg max-w-sm w-full p-5 space-y-4 relative">
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <h3 className="text-sm font-bold">إضافة قسم / صنف جديد</h3>
-              <button onClick={() => setShowCategoryModal(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">اسم القسم (عربي)</label>
-              <input
-                type="text"
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                placeholder="مثال: عبايات استقبال"
-                className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowCategoryModal(false)}
-                className="px-3 py-1.5 border border-border rounded-md text-xs"
-              >
-                إلغاء
-              </button>
-              <button
-                onClick={handleAddCategory}
-                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium"
-              >
-                إضافة القسم
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🔴 مودال رفع الصور */}
-      {showImageModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg max-w-sm w-full p-5 space-y-4 relative">
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <h3 className="text-sm font-bold">رفع صورة جديدة</h3>
-              <button onClick={() => setShowImageModal(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <label className="cursor-pointer border-2 border-dashed border-border hover:border-primary rounded-lg p-6 flex flex-col items-center justify-center text-center transition-colors block">
-                <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-                <span className="text-xs text-muted-foreground">اضغط لاختيار صورة من جهازك</span>
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-              </label>
-
-              {uploadedImage && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">معاينة الصورة:</p>
-                  <img src={uploadedImage} alt="Uploaded" className="w-20 h-20 object-cover rounded border border-border mx-auto" />
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => {
-                  setShowImageModal(false);
-                  setUploadedImage(null);
-                }}
-                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium"
-              >
-                إغلاق
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* النافذة الشغالة ✅ */}
+      <ProductFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddProductSubmit}
+        existingCategories={existingCategories}
+        onAddCategory={handleAddCategory}
+      />
     </div>
   );
 }
