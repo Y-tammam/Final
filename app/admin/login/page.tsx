@@ -6,12 +6,11 @@ import { useRouter } from 'next/navigation';
 import { BRAND_CONFIG } from '@/lib/brand';
 import { Loader2, Lock, Mail, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase } from '@/lib/supabase';
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// ملحوظة: بنستخدم نفس عميل supabase الموحّد بتاع المشروع كله (lib/supabase.ts)
+// بدل ما نعمل عميل منفصل هنا. العميل ده بيحفظ الجلسة في cookies، فيبقى
+// متوافق مع middleware.ts وباقي الصفحات (auth-context, admin-guard).
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -32,14 +31,17 @@ export default function AdminLoginPage() {
         password,
       });
 
-      if (error) {
+      if (error || !data.user) {
         toast.error('بيانات الدخول غير صحيحة');
         return;
       }
 
-      const userRole = data.user?.user_metadata?.role;
+      // مصدر الحقيقة الوحيد لتحديد الأدمن هو is_admin() في قاعدة
+      // البيانات (جدول admin_users)، مش user_metadata القابل للتعديل
+      // من المستخدم نفسه.
+      const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin');
 
-      if (userRole !== 'admin') {
+      if (rpcError || !isAdmin) {
         await supabase.auth.signOut();
         toast.error('عذراً، هذا الحساب ليس لديه صلاحيات لوحة التحكم');
         return;
