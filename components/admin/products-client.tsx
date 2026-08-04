@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { priceEGP } from "@/lib/format";
 import type { Product } from "@/lib/types";
-import { ProductForm } from "./ProductForm"; // استدعاء نموذج المنتجات الخاص بك
+import { ProductForm } from "components/admin/ProductFormModal"; // استدعاء نموذج المنتجات الخاص بك
 
 interface ProductsClientProps {
   initialProducts?: Product[];
