@@ -6,14 +6,18 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { priceEGP } from "@/lib/format";
 import type { Product } from "@/lib/types";
+import { useRouter } from "next/navigation"; // تأكد من استيراد useRouter في الأعلى
+
+export function ProductsClient({ initialProducts = [], categories = [] }: ProductsClientProps) {
+  const router = useRouter(); // 👈 إضافة الـ router
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  // ... باقي الكود كالمعتاد
 
 interface ProductsClientProps {
   initialProducts?: Product[];
   categories?: { id: string; name_ar: string; slug: string }[];
 }
 
-export function ProductsClient({ initialProducts = [], categories = [] }: ProductsClientProps) {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
 
