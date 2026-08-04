@@ -1,16 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Edit2, Trash2, Image as ImageIcon, Loader2, X } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
-import { priceEGP } from "@/lib/format";
-import type { Product } from "@/lib/types";
+import { Plus, Search, Edit2, Trash2, Image as ImageIcon, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Category {
   id: string;
-  name_ar: string;
-  slug: string;
+  name: string;
+}
+
+interface Product {
+  id: string;
+  name_ar?: string;
+  name?: string;
+  price: number;
+  category?: string;
+  images?: string[];
 }
 
 interface ProductsClientProps {
@@ -20,151 +25,144 @@ interface ProductsClientProps {
 
 export function ProductsClient({
   initialProducts = [],
-  categories: initialCategories = [],
+  categories: initialCategories = [
+    { id: "1", name: "ملابس رجالي" },
+    { id: "2", name: "ملابس حريمي" },
+  ],
 }: ProductsClientProps) {
+  const { toast } = useToast();
+
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [categoriesList, setCategoriesList] = useState<Category[]>(initialCategories);
   const [search, setSearch] = useState("");
-  const [deleting, setDeleting] = useState<string | null>(null);
 
-  // حالات التحكم في المودال (إضافة / تعديل)
+  // حالات المودال (Modal) والنموذج
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  // بيانات الفورم
-  const [titleAr, setTitleAr] = useState("");
-  const [priceEgp, setPriceEgp] = useState<number | "">("");
-  const [salePriceEgp, setSalePriceEgp] = useState<number | "">("");
-  const [categoryId, setCategoryId] = useState("");
+  // حالات بيانات المدخلات (Form)
+  const [productName, setProductName] = useState("");
+  const [price, setPrice] = useState<number | "">("");
+  const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
 
-  // حالات إضافة قسم جديد داخل الفورم
+  // حالة إضافة قسم جديد
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [addingCatLoading, setAddingCatLoading] = useState(false);
 
+  // تصفية المنتجات بحسب البحث
   const filteredProducts = products.filter((p) =>
-    (p.title_ar || "").toLowerCase().includes(search.toLowerCase())
+    (p.name_ar || p.name || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  // فتح مودال للإضافة
-  const openAddModal = () => {
+  // فتح المودال للإضافة
+  const handleOpenAdd = () => {
     setEditingProduct(null);
-    setTitleAr("");
-    setPriceEgp("");
-    setSalePriceEgp("");
-    setCategoryId("");
+    setProductName("");
+    setPrice("");
+    setCategory("");
     setImageUrl("");
+    setIsAddingCategory(false);
     setIsModalOpen(true);
   };
 
-  // فتح مودال للتعديل
-  const openEditModal = (product: Product) => {
+  // فتح المودال للتعديل
+  const handleOpenEdit = (product: Product) => {
     setEditingProduct(product);
-    setTitleAr(product.title_ar || "");
-    setPriceEgp(product.price_egp || "");
-    setSalePriceEgp(product.sale_price_egp || "");
-    setCategoryId((product as any).category_id || "");
+    setProductName(product.name_ar || product.name || "");
+    setPrice(product.price);
+    setCategory(product.category || "");
     setImageUrl(product.images?.[0] || "");
+    setIsAddingCategory(false);
     setIsModalOpen(true);
   };
 
   // حذف منتج
-  const handleDelete = async (product: Product) => {
-    if (!confirm(`حذف "${product.title_ar}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
-    setDeleting(product.id);
-    const { error } = await supabase.from("products").delete().eq("id", product.id);
-    setDeleting(null);
-    if (error) {
-      toast.error("تعذر حذف المنتج");
-      return;
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`هل أنت تأكد من حذف "${name}"؟`)) {
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      toast({
+        title: "تم الحذف",
+        description: "تم حذف المنتج بنجاح",
+      });
     }
-    setProducts((prev) => prev.filter((p) => p.id !== product.id));
-    toast.success("تم حذف المنتج");
   };
 
-  // إضافة قسم جديد سريعة بداخل قاعدة البيانات
-  const handleCreateCategory = async () => {
+  // إضافة قسم جديد
+  const handleAddCategory = () => {
     if (!newCategoryName.trim()) {
-      toast.error("يرجى إدخال اسم القسم");
-      return;
-    }
-    setAddingCatLoading(true);
-
-    const slug = newCategoryName.trim().toLowerCase().replace(/\s+/g, "-");
-    const { data, error } = await supabase
-      .from("categories")
-      .insert({ name_ar: newCategoryName.trim(), slug })
-      .select()
-      .single();
-
-    setAddingCatLoading(false);
-
-    if (error) {
-      toast.error("فشل إدخال القسم الجديد: " + error.message);
+      toast({
+        variant: "destructive",
+        title: "تنبيه",
+        description: "يرجى كتابة اسم القسم",
+      });
       return;
     }
 
-    setCategoriesList((prev) => [...prev, data]);
-    setCategoryId(data.id);
-    setNewCategoryName("");
-    setIsAddingCategory(false);
-    toast.success("تمت إضافة القسم بنجاح");
-  };
-
-  // حفظ المنتج (إضافة أو تعديل)
-  const handleSubmitProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!titleAr || !priceEgp) {
-      toast.error("يرجى إكمال البيانات الأساسية (الاسم والسعر)");
-      return;
-    }
-
-    setSubmitting(true);
-    const payload = {
-      title_ar: titleAr,
-      price_egp: Number(priceEgp),
-      sale_price_egp: salePriceEgp ? Number(salePriceEgp) : null,
-      category_id: categoryId || null,
-      images: imageUrl ? [imageUrl] : [],
+    const newCat: Category = {
+      id: Date.now().toString(),
+      name: newCategoryName.trim(),
     };
 
+    setCategoriesList((prev) => [...prev, newCat]);
+    setCategory(newCat.name);
+    setNewCategoryName("");
+    setIsAddingCategory(false);
+
+    toast({
+      title: "تمت إضافة القسم",
+      description: `تم إضافة قسم "${newCat.name}" بنجاح`,
+    });
+  };
+
+  // حفظ المنتج (إضافة / تعديل)
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!productName || !price || !category) {
+      toast({
+        variant: "destructive",
+        title: "بيانات ناقصة",
+        description: "يرجى ملء جميع الحقول المطلوبة (الاسم، السعر، القسم)",
+      });
+      return;
+    }
+
     if (editingProduct) {
-      // تعديل
-      const { data, error } = await supabase
-        .from("products")
-        .update(payload)
-        .eq("id", editingProduct.id)
-        .select()
-        .single();
-
-      setSubmitting(false);
-
-      if (error) {
-        toast.error("حدث خطأ أثناء التعديل: " + error.message);
-        return;
-      }
-
-      setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? data : p)));
-      toast.success("تم تعديل المنتج بنجاح");
+      // تعديل منتج قائم
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === editingProduct.id
+            ? {
+                ...p,
+                name_ar: productName,
+                name: productName,
+                price: Number(price),
+                category,
+                images: imageUrl ? [imageUrl] : p.images,
+              }
+            : p
+        )
+      );
+      toast({
+        title: "تم التعديل",
+        description: "تم تحديث بيانات المنتج بنجاح",
+      });
     } else {
-      // إضافة جديد
-      const { data, error } = await supabase
-        .from("products")
-        .insert(payload)
-        .select()
-        .single();
-
-      setSubmitting(false);
-
-      if (error) {
-        toast.error("حدث خطأ أثناء الإضافة: " + error.message);
-        return;
-      }
-
-      setProducts((prev) => [data, ...prev]);
-      toast.success("تم إضافة المنتج بنجاح");
+      // إضافة منتج جديد
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        name_ar: productName,
+        name: productName,
+        price: Number(price),
+        category,
+        images: imageUrl ? [imageUrl] : [],
+      };
+      setProducts((prev) => [newProduct, ...prev]);
+      toast({
+        title: "تمت الإضافة",
+        description: "تم إضافة المنتج الجديد بنجاح",
+      });
     }
 
     setIsModalOpen(false);
@@ -172,7 +170,7 @@ export function ProductsClient({
 
   return (
     <div className="space-y-6 font-arabic" dir="rtl">
-      {/* Header Section */}
+      {/* الهيدر وزر الإضافة */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold">إدارة المنتجات</h1>
@@ -182,7 +180,7 @@ export function ProductsClient({
         </div>
 
         <button
-          onClick={openAddModal}
+          onClick={handleOpenAdd}
           className="bg-primary text-primary-foreground px-4 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm font-medium w-fit"
         >
           <Plus className="w-4 h-4" />
@@ -190,7 +188,7 @@ export function ProductsClient({
         </button>
       </div>
 
-      {/* Search Input */}
+      {/* شريط البحث */}
       <div className="relative">
         <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -202,7 +200,7 @@ export function ProductsClient({
         />
       </div>
 
-      {/* Products Table/List */}
+      {/* قائمة المنتجات */}
       <div className="bg-background border border-border rounded-md overflow-hidden">
         {filteredProducts.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground text-sm">
@@ -211,54 +209,46 @@ export function ProductsClient({
         ) : (
           <div className="divide-y divide-border">
             {filteredProducts.map((product) => {
-              const effectivePrice = product.sale_price_egp ?? product.price_egp;
-              const totalStock = product.variants?.reduce((s, v) => s + v.stock_quantity, 0) ?? 0;
+              const displayName = product.name_ar || product.name || "منتج بدون اسم";
               return (
                 <div
                   key={product.id}
                   className="p-4 flex items-center justify-between gap-4 hover:bg-secondary/10 transition-colors"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3">
                     {product.images && product.images[0] ? (
                       <img
                         src={product.images[0]}
-                        alt={product.title_ar}
-                        className="w-12 h-12 object-cover rounded-md border border-border shrink-0"
+                        alt={displayName}
+                        className="w-12 h-12 object-cover rounded-md border border-border"
                       />
                     ) : (
-                      <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
                         <ImageIcon className="w-5 h-5 text-muted-foreground" />
                       </div>
                     )}
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-sm truncate">{product.title_ar}</h3>
+                    <div>
+                      <h3 className="font-semibold text-sm">{displayName}</h3>
                       <p className="text-xs text-muted-foreground">
-                        {priceEGP(effectivePrice)} ج.م
-                        {totalStock === 0 && <span className="text-destructive mr-2">• نفد المخزون</span>}
-                        {totalStock > 0 && totalStock <= 5 && <span className="text-warning mr-2">• مخزون منخفض</span>}
+                        {product.price} ج.م {product.category && `• ${product.category}`}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => openEditModal(product)}
-                      className="p-2 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"
-                      aria-label="تعديل"
+                      onClick={() => handleOpenEdit(product)}
+                      className="p-2 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                      title="تعديل"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(product)}
-                      disabled={deleting === product.id}
-                      className="p-2 hover:bg-destructive/10 rounded-md text-destructive disabled:opacity-50"
-                      aria-label="حذف"
+                      onClick={() => handleDelete(product.id, displayName)}
+                      className="p-2 hover:bg-destructive/10 rounded-md text-destructive transition-colors"
+                      title="حذف"
                     >
-                      {deleting === product.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -268,50 +258,52 @@ export function ProductsClient({
         )}
       </div>
 
-      {/* 🟢 MODAL: إضافة / تعديل منتج */}
+      {/* 🟢 المودال (نافذة إضافة / تعديل منتج) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg max-w-lg w-full p-6 shadow-xl space-y-4 relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-background border border-border rounded-lg max-w-md w-full p-6 shadow-lg space-y-4 relative animate-in fade-in zoom-in-95 duration-150">
+            {/* عنوان المودال ورر الإغلاق */}
             <div className="flex items-center justify-between pb-2 border-b border-border">
-              <h2 className="text-lg font-bold">
-                {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
+              <h2 className="text-base font-bold">
+                {editingProduct ? "تعديل بيانات المنتج" : "إضافة منتج جديد"}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="p-1 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitProduct} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* اسم المنتج */}
               <div>
-                <label className="block text-xs font-semibold mb-1">عنوان المنتج (عربي) *</label>
+                <label className="block text-xs font-semibold mb-1">اسم المنتج *</label>
                 <input
                   type="text"
                   required
-                  value={titleAr}
-                  onChange={(e) => setTitleAr(e.target.value)}
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
                   className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="مثال: قميص أبيض كلاسيك"
                 />
               </div>
 
-              {/* اختيار / إضافة القسم */}
+              {/* اختيار القسم + إضافة قسم جديد */}
               <div>
-                <label className="block text-xs font-semibold mb-1">القسم</label>
+                <label className="block text-xs font-semibold mb-1">القسم *</label>
                 {!isAddingCategory ? (
                   <div className="flex gap-2">
                     <select
-                      value={categoryId}
-                      onChange={(e) => setCategoryId(e.target.value)}
+                      required
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="">-- اختر القسم --</option>
                       {categoriesList.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name_ar}
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
                         </option>
                       ))}
                     </select>
@@ -334,11 +326,10 @@ export function ProductsClient({
                     />
                     <button
                       type="button"
-                      disabled={addingCatLoading}
-                      onClick={handleCreateCategory}
-                      className="px-3 py-2 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:opacity-90 shrink-0 flex items-center gap-1"
+                      onClick={handleAddCategory}
+                      className="px-3 py-2 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:opacity-90 shrink-0"
                     >
-                      {addingCatLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "حفظ"}
+                      حفظ
                     </button>
                     <button
                       type="button"
@@ -351,29 +342,17 @@ export function ProductsClient({
                 )}
               </div>
 
-              {/* السعر وسعر الخصم */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold mb-1">السعر (ج.م) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={priceEgp}
-                    onChange={(e) => setPriceEgp(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1">سعر الخصم (اختياري)</label>
-                  <input
-                    type="number"
-                    value={salePriceEgp}
-                    onChange={(e) => setSalePriceEgp(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder="0"
-                  />
-                </div>
+              {/* السعر */}
+              <div>
+                <label className="block text-xs font-semibold mb-1">السعر (ج.م) *</label>
+                <input
+                  type="number"
+                  required
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="0"
+                />
               </div>
 
               {/* رابط الصورة */}
@@ -388,8 +367,8 @@ export function ProductsClient({
                 />
               </div>
 
-              {/* الأزرار بالأسفل */}
-              <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              {/* أزرار الإجراءات */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -399,10 +378,8 @@ export function ProductsClient({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:opacity-90 flex items-center gap-2"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:opacity-90"
                 >
-                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {editingProduct ? "حفظ التعديلات" : "إضافة المنتج"}
                 </button>
               </div>
