@@ -242,19 +242,21 @@ function ProductForm({
   };
 
   const handleAddCategory = () => {
-    if (!newCategoryName.trim()) return;
-    const newCat: Category = {
-      id: `cat-${Date.now()}`,
-      name_ar: newCategoryName.trim(),
-      name_en: newCategoryName.trim(),
-      slug: newCategoryName.trim().toLowerCase().replace(/\s+/g, '-'),
-    };
-    setCategories((prev) => [...prev, newCat]);
-    setForm((f) => ({ ...f, category_id: newCat.id }));
-    setNewCategoryName('');
-    setShowAddCategoryInput(false);
-    toast.success('تم إضافة الفئة');
+  if (!newCategoryName.trim()) return;
+  const newCat: Category = {
+    id: `cat-${Date.now()}`,
+    name_ar: newCategoryName.trim(),
+    name_en: newCategoryName.trim(),
+    slug: newCategoryName.trim().toLowerCase().replace(/\s+/g, '-'),
+    created_at: new Date().toISOString(),
   };
+  setCategories((prev) => [...prev, newCat]);
+  setForm((f) => ({ ...f, category_id: newCat.id }));
+  setNewCategoryName('');
+  setShowAddCategoryInput(false);
+  toast.success('تم إضافة الفئة');
+};
+
 
   const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
 
