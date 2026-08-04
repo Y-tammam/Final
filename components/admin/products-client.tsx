@@ -1,165 +1,181 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Edit2, Trash2, Image as ImageIcon, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Plus, Search, Edit2, Trash2, Image as ImageIcon, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { priceEGP } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
-interface Category {
+interface CategoryItem {
   id: string;
-  name?: string;
-  name_ar?: string;
+  name_ar: string;
+  slug?: string;
 }
 
 interface ProductsClientProps {
   initialProducts?: Product[];
-  categories?: Category[];
+  categories?: CategoryItem[];
 }
 
-export function ProductsClient({
-  initialProducts = [],
-  categories: initialCategories = [],
-}: ProductsClientProps) {
-  const { toast } = useToast();
-
+export function ProductsClient({ initialProducts = [], categories: initialCategories = [] }: ProductsClientProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [categoriesList, setCategoriesList] = useState<Category[]>(initialCategories);
+  const [categoriesList, setCategoriesList] = useState<CategoryItem[]>(initialCategories);
   const [search, setSearch] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
-  // حالات المودال والنموذج
+  // حالات نافذة الإضافة والتعديل
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // حقول البيانات
-  const [productName, setProductName] = useState("");
-  const [price, setPrice] = useState<number | "">("");
-  const [category, setCategory] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  // حقول نموذج المنتج
+  const [titleAr, setTitleAr] = useState("");
+  const [titleEn, setTitleEn] = useState("");
+  const [slug, setSlug] = useState("");
+  const [descriptionAr, setDescriptionAr] = useState("");
+  const [fabricDetails, setFabricDetails] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [priceEgp, setPriceEgp] = useState("");
+  const [salePriceEgp, setSalePriceEgp] = useState("");
+  const [images, setImages] = useState<string[]>([""]);
+  const [isFeatured, setIsFeatured] = useState(false);
 
-  // إضافة قسم جديد
+  // حالة إضافة قسم جديد داخل المودال
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
-  // تصفية المنتجات للبحث (حل مشكلة Type Error هنا)
-  const filteredProducts = products.filter((p) => {
-    const item = p as any;
-    const name = item.title_ar || item.title || item.name_ar || item.name || "";
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
+  // تصفية المنتجات حسب البحث
+  const filteredProducts = products.filter((p) =>
+    (p.title_ar || "").toLowerCase().includes(search.toLowerCase())
+  );
 
-  // فتح المودال للإضافة
+  // فتح مودال الإضافة
   const handleOpenAdd = () => {
     setEditingProduct(null);
-    setProductName("");
-    setPrice("");
-    setCategory("");
-    setImageUrl("");
+    setTitleAr("");
+    setTitleEn("");
+    setSlug("");
+    setDescriptionAr("");
+    setFabricDetails("");
+    setCategoryId("");
+    setPriceEgp("");
+    setSalePriceEgp("");
+    setImages([""]);
+    setIsFeatured(false);
     setIsAddingCategory(false);
     setIsModalOpen(true);
   };
 
-  // فتح المودال للتعديل
+  // فتح مودال التعديل
   const handleOpenEdit = (product: Product) => {
-    const item = product as any;
     setEditingProduct(product);
-    setProductName(item.title_ar || item.title || item.name_ar || item.name || "");
-    setPrice(product.price_egp ?? item.price ?? 0);
-    setCategory(item.category || item.category_id || "");
-    setImageUrl(product.images?.[0] || "");
+    setTitleAr(product.title_ar || "");
+    setTitleEn(product.title_en || "");
+    setSlug(product.slug || "");
+    setDescriptionAr(product.description_ar || "");
+    setFabricDetails(product.fabric_details_ar || "");
+    setCategoryId(product.category_id || "");
+    setPriceEgp(product.price_egp?.toString() || "");
+    setSalePriceEgp(product.sale_price_egp?.toString() || "");
+    setImages(product.images && product.images.length > 0 ? product.images : [""]);
+    setIsFeatured(!!product.is_featured);
     setIsAddingCategory(false);
     setIsModalOpen(true);
   };
 
-  // حذف منتج
-  const handleDelete = (id: string, name: string) => {
-    if (confirm(`هل أنت تأكد من حذف "${name}"؟`)) {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف المنتج بنجاح",
-      });
-    }
-  };
-
-  // إضافة قسم جديد
-  const handleAddCategory = () => {
-    if (!newCategoryName.trim()) {
-      toast({
-        variant: "destructive",
-        title: "تنبيه",
-        description: "يرجى كتابة اسم القسم",
-      });
+  // حذف المنتج
+  const handleDelete = async (product: Product) => {
+    if (!confirm(`حذف "${product.title_ar}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    setDeleting(product.id);
+    const { error } = await supabase.from("products").delete().eq("id", product.id);
+    setDeleting(null);
+    if (error) {
+      toast.error("تعذر حذف المنتج");
       return;
     }
+    setProducts((prev) => prev.filter((p) => p.id !== product.id));
+    toast.success("تم حذف المنتج");
+  };
 
-    const newCat: Category = {
-      id: Date.now().toString(),
-      name: newCategoryName.trim(),
+  // إضافة قسم جديد فوري
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      toast.error("يرجى إدخال اسم القسم");
+      return;
+    }
+    const newCat: CategoryItem = {
+      id: `cat-${Date.now()}`,
       name_ar: newCategoryName.trim(),
     };
-
     setCategoriesList((prev) => [...prev, newCat]);
-    setCategory(newCat.name || newCat.name_ar || "");
+    setCategoryId(newCat.id);
     setNewCategoryName("");
     setIsAddingCategory(false);
+    toast.success(`تم إضافة قسم "${newCat.name_ar}"`);
+  };
 
-    toast({
-      title: "تمت إضافة القسم",
-      description: `تم إضافة قسم "${newCat.name}" بنجاح`,
-    });
+  // رفع صورة من الجهاز
+  const handleFileUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        const newImages = [...images];
+        newImages[index] = reader.result;
+        setImages(newImages);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // حفظ المنتج (إضافة / تعديل)
-    // حفظ المنتج (إضافة / تعديل)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!productName || price === "" || !category) {
-      toast({
-        variant: "destructive",
-        title: "بيانات ناقصة",
-        description: "يرجى ملء جميع الحقول المطلوبة (الاسم، السعر، القسم)",
-      });
+    if (!titleAr || !priceEgp) {
+      toast.error("يرجى ملء الحقول المطلوبة (اسم المنتج والسعر)");
       return;
     }
 
+    const cleanedImages = images.filter((img) => img.trim() !== "");
+
+    const payload = {
+      title_ar: titleAr,
+      title_en: titleEn || titleAr,
+      slug: slug || titleAr.toLowerCase().replace(/\s+/g, "-"),
+      description_ar: descriptionAr || null,
+      price_egp: parseFloat(priceEgp),
+      sale_price_egp: salePriceEgp ? parseFloat(salePriceEgp) : null,
+      fabric_details_ar: fabricDetails || null,
+      category_id: categoryId || null,
+      images: cleanedImages,
+      is_featured: isFeatured,
+    };
+
     if (editingProduct) {
+      const updatedProduct = {
+        ...editingProduct,
+        ...payload,
+      } as unknown as Product;
+
       setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingProduct.id
-            ? ({
-                ...p,
-                title_ar: productName,
-                name_ar: productName,
-                price_egp: Number(price),
-                images: imageUrl ? [imageUrl] : p.images,
-              } as unknown as Product)
-            : p
-        )
+        prev.map((p) => (p.id === editingProduct.id ? updatedProduct : p))
       );
-      toast({
-        title: "تم التعديل",
-        description: "تم تحديث بيانات المنتج بنجاح",
-      });
+      toast.success("تم تحديث المنتج بنجاح");
     } else {
       const newProduct = {
         id: Date.now().toString(),
-        title_ar: productName,
-        name_ar: productName,
-        price_egp: Number(price),
-        images: imageUrl ? [imageUrl] : [],
+        ...payload,
       } as unknown as Product;
 
       setProducts((prev) => [newProduct, ...prev]);
-      toast({
-        title: "تمت الإضافة",
-        description: "تم إضافة المنتج الجديد بنجاح",
-      });
+      toast.success("تمت إضافة المنتج بنجاح");
     }
 
     setIsModalOpen(false);
   };
-
 
   return (
     <div className="space-y-6 font-arabic" dir="rtl">
@@ -181,7 +197,7 @@ export function ProductsClient({
         </button>
       </div>
 
-      {/* شريط البحث */}
+      {/* البحث */}
       <div className="relative">
         <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -202,51 +218,54 @@ export function ProductsClient({
         ) : (
           <div className="divide-y divide-border">
             {filteredProducts.map((product) => {
-              const item = product as any;
-              const displayName =
-                item.title_ar || item.title || item.name_ar || item.name || "منتج بدون اسم";
-              const displayPrice = product.price_egp ?? item.price ?? 0;
-              const displayCategory = item.category || "";
-
+              const effectivePrice = product.sale_price_egp ?? product.price_egp;
+              const totalStock = product.variants?.reduce((s, v) => s + v.stock_quantity, 0) ?? 0;
               return (
                 <div
                   key={product.id}
                   className="p-4 flex items-center justify-between gap-4 hover:bg-secondary/10 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     {product.images && product.images[0] ? (
                       <img
                         src={product.images[0]}
-                        alt={displayName}
-                        className="w-12 h-12 object-cover rounded-md border border-border"
+                        alt={product.title_ar}
+                        className="w-12 h-12 object-cover rounded-md border border-border shrink-0"
                       />
                     ) : (
-                      <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
+                      <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center shrink-0">
                         <ImageIcon className="w-5 h-5 text-muted-foreground" />
                       </div>
                     )}
-                    <div>
-                      <h3 className="font-semibold text-sm">{displayName}</h3>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{product.title_ar}</h3>
                       <p className="text-xs text-muted-foreground">
-                        {displayPrice} ج.م {displayCategory && `• ${displayCategory}`}
+                        {priceEGP(effectivePrice)} ج.م
+                        {totalStock === 0 && <span className="text-destructive mr-2">• نفد المخزون</span>}
+                        {totalStock > 0 && totalStock <= 5 && <span className="text-warning mr-2">• مخزون منخفض</span>}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleOpenEdit(product)}
                       className="p-2 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                      title="تعديل"
+                      aria-label="تعديل"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(product.id, displayName)}
-                      className="p-2 hover:bg-destructive/10 rounded-md text-destructive transition-colors"
-                      title="حذف"
+                      onClick={() => handleDelete(product)}
+                      disabled={deleting === product.id}
+                      className="p-2 hover:bg-destructive/10 rounded-md text-destructive disabled:opacity-50 transition-colors"
+                      aria-label="حذف"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {deleting === product.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -256,10 +275,10 @@ export function ProductsClient({
         )}
       </div>
 
-      {/* نافذة الإضافة / التعديل (Modal) */}
+      {/* نافذة الإضافة والتعديل الشاملة (Modal) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg max-w-md w-full p-6 shadow-lg space-y-4 relative">
+          <div className="bg-background border border-border rounded-lg max-w-lg w-full p-6 shadow-lg space-y-4 relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <h2 className="text-base font-bold">
                 {editingProduct ? "تعديل بيانات المنتج" : "إضافة منتج جديد"}
@@ -273,37 +292,61 @@ export function ProductsClient({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* اسم المنتج بالعربي والإنجليزي */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">اسم المنتج (عربي) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={titleAr}
+                    onChange={(e) => setTitleAr(e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="عباية حرير"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">اسم المنتج (English)</label>
+                  <input
+                    type="text"
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring text-left"
+                    dir="ltr"
+                    placeholder="Silk Abaya"
+                  />
+                </div>
+              </div>
+
+              {/* الرابط slug */}
               <div>
-                <label className="block text-xs font-semibold mb-1">اسم المنتج *</label>
+                <label className="block text-xs font-semibold mb-1">الرابط (Slug)</label>
                 <input
                   type="text"
-                  required
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="مثال: قميص أبيض كلاسيك"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring text-left"
+                  dir="ltr"
+                  placeholder="silk-abaya-1"
                 />
               </div>
 
+              {/* القسم واختيار قسم جديد */}
               <div>
-                <label className="block text-xs font-semibold mb-1">القسم *</label>
+                <label className="block text-xs font-semibold mb-1">القسم / الصنف</label>
                 {!isAddingCategory ? (
                   <div className="flex gap-2">
                     <select
-                      required
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      value={categoryId}
+                      onChange={(e) => setCategoryId(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="">-- اختر القسم --</option>
-                      {categoriesList.map((cat) => {
-                        const name = cat.name_ar || cat.name || "";
-                        return (
-                          <option key={cat.id} value={name}>
-                            {name}
-                          </option>
-                        );
-                      })}
+                      {categoriesList.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name_ar}
+                        </option>
+                      ))}
                     </select>
                     <button
                       type="button"
@@ -340,29 +383,123 @@ export function ProductsClient({
                 )}
               </div>
 
+              {/* السعر وتخفيض السعر */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">السعر (ج.م) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={priceEgp}
+                    onChange={(e) => setPriceEgp(e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">سعر التخفيض (اختياري)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={salePriceEgp}
+                    onChange={(e) => setSalePriceEgp(e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* الخامة والوصف */}
               <div>
-                <label className="block text-xs font-semibold mb-1">السعر (ج.م) *</label>
+                <label className="block text-xs font-semibold mb-1">الخامة</label>
                 <input
-                  type="number"
-                  required
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : "")}
+                  type="text"
+                  value={fabricDetails}
+                  onChange={(e) => setFabricDetails(e.target.value)}
                   className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="0"
+                  placeholder="حرير تركي 100%"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1">رابط الصورة (URL)</label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="https://example.com/image.jpg"
+                <label className="block text-xs font-semibold mb-1">الوصف</label>
+                <textarea
+                  rows={2}
+                  value={descriptionAr}
+                  onChange={(e) => setDescriptionAr(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                  placeholder="وصف التفاصيل والخامة..."
                 />
               </div>
 
+              {/* الصور: إمكانية الرفع المباشر أو كتابة URL */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold">صور المنتج</label>
+                {images.map((img, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={img}
+                        onChange={(e) => {
+                          const newImgs = [...images];
+                          newImgs[i] = e.target.value;
+                          setImages(newImgs);
+                        }}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-ring text-left"
+                        dir="ltr"
+                        placeholder="رابط الصورة أو اختر ملف..."
+                      />
+                      <label className="cursor-pointer bg-secondary text-secondary-foreground text-xs px-3 py-2 rounded-md hover:bg-secondary/80 shrink-0 flex items-center gap-1 font-medium">
+                        📁 رفع صورة
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(i, e)}
+                        />
+                      </label>
+                      {images.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setImages(images.filter((_, idx) => idx !== i))}
+                          className="text-destructive text-xs px-2 shrink-0"
+                        >
+                          حذف
+                        </button>
+                      )}
+                    </div>
+                    {img && (
+                      <div className="w-12 h-12 rounded border border-border overflow-hidden bg-muted mt-1">
+                        <img src={img} alt="preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setImages([...images, ""])}
+                  className="text-xs text-primary hover:underline font-medium block pt-1"
+                >
+                  + إضافة صورة أخرى
+                </button>
+              </div>
+
+              {/* خيار منتج مميز */}
+              <div className="pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={isFeatured}
+                    onChange={(e) => setIsFeatured(e.target.checked)}
+                    className="rounded border-border w-4 h-4 text-primary focus:ring-primary"
+                  />
+                  منتج مميز (يظهر في الصفحة الرئيسية) ⭐
+                </label>
+              </div>
+
+              {/* أزرار الحفظ والإلغاء */}
               <div className="flex justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
