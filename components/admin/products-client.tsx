@@ -110,6 +110,7 @@ export function ProductsClient({
   };
 
   // حفظ المنتج (إضافة / تعديل)
+    // حفظ المنتج (إضافة / تعديل)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -131,9 +132,8 @@ export function ProductsClient({
                 title_ar: productName,
                 name_ar: productName,
                 price_egp: Number(price),
-                category,
                 images: imageUrl ? [imageUrl] : p.images,
-              } as Product)
+              } as unknown as Product)
             : p
         )
       );
@@ -142,15 +142,15 @@ export function ProductsClient({
         description: "تم تحديث بيانات المنتج بنجاح",
       });
     } else {
-      const newProduct: any = {
+      const newProduct = {
         id: Date.now().toString(),
         title_ar: productName,
         name_ar: productName,
         price_egp: Number(price),
-        category,
         images: imageUrl ? [imageUrl] : [],
-      };
-      setProducts((prev) => [newProduct as Product, ...prev]);
+      } as unknown as Product;
+
+      setProducts((prev) => [newProduct, ...prev]);
       toast({
         title: "تمت الإضافة",
         description: "تم إضافة المنتج الجديد بنجاح",
@@ -159,6 +159,7 @@ export function ProductsClient({
 
     setIsModalOpen(false);
   };
+
 
   return (
     <div className="space-y-6 font-arabic" dir="rtl">
