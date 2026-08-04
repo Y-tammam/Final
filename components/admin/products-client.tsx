@@ -40,9 +40,10 @@ export function ProductsClient({
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
-  // تصفية المنتجات للبحث
+  // تصفية المنتجات للبحث (حل مشكلة Type Error هنا)
   const filteredProducts = products.filter((p) => {
-    const name = p.title_ar || p.title || (p as any).name_ar || (p as any).name || "";
+    const item = p as any;
+    const name = item.title_ar || item.title || item.name_ar || item.name || "";
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
@@ -59,10 +60,11 @@ export function ProductsClient({
 
   // فتح المودال للتعديل
   const handleOpenEdit = (product: Product) => {
+    const item = product as any;
     setEditingProduct(product);
-    setProductName(product.title_ar || product.title || (product as any).name_ar || (product as any).name || "");
-    setPrice(product.price_egp ?? (product as any).price ?? 0);
-    setCategory((product as any).category || (product as any).category_id || "");
+    setProductName(item.title_ar || item.title || item.name_ar || item.name || "");
+    setPrice(product.price_egp ?? item.price ?? 0);
+    setCategory(item.category || item.category_id || "");
     setImageUrl(product.images?.[0] || "");
     setIsAddingCategory(false);
     setIsModalOpen(true);
@@ -127,11 +129,8 @@ export function ProductsClient({
             ? ({
                 ...p,
                 title_ar: productName,
-                title: productName,
                 name_ar: productName,
-                name: productName,
                 price_egp: Number(price),
-                price: Number(price),
                 category,
                 images: imageUrl ? [imageUrl] : p.images,
               } as Product)
@@ -146,11 +145,8 @@ export function ProductsClient({
       const newProduct: any = {
         id: Date.now().toString(),
         title_ar: productName,
-        title: productName,
         name_ar: productName,
-        name: productName,
         price_egp: Number(price),
-        price: Number(price),
         category,
         images: imageUrl ? [imageUrl] : [],
       };
@@ -205,10 +201,11 @@ export function ProductsClient({
         ) : (
           <div className="divide-y divide-border">
             {filteredProducts.map((product) => {
+              const item = product as any;
               const displayName =
-                product.title_ar || product.title || (product as any).name_ar || (product as any).name || "منتج بدون اسم";
-              const displayPrice = product.price_egp ?? (product as any).price ?? 0;
-              const displayCategory = (product as any).category || "";
+                item.title_ar || item.title || item.name_ar || item.name || "منتج بدون اسم";
+              const displayPrice = product.price_egp ?? item.price ?? 0;
+              const displayCategory = item.category || "";
 
               return (
                 <div
