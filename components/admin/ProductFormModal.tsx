@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
+import { Upload } from "lucide-react";
 
 interface Category {
   id: string;
@@ -43,6 +44,24 @@ export function ProductFormModal({
   const [newCategoryName, setNewCategoryName] = useState('');
 
   if (!isOpen) return null;
+
+  // رفع صورة من الجهاز
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        setImage(reader.result);
+        toast({
+          title: "نجاح",
+          description: "تم رفع الصورة بنجاح",
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleAddNewCategory = () => {
     if (!newCategoryName.trim()) {
@@ -184,14 +203,31 @@ export function ProductFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">رابط الصورة (URL)</label>
-            <input
-              type="text"
-              value={image}
-              onChange={(e) => setImage(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-ring text-sm"
-              placeholder="https://..."
-            />
+            <label className="block text-sm font-medium mb-1">صورة المنتج</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                className="w-full bg-background border border-border rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-ring text-sm"
+                placeholder="ضع رابط الصورة (URL) أو ارفع ملف من هنا..."
+              />
+              <label className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-2 rounded-lg text-sm flex items-center gap-1 shrink-0">
+                <Upload className="w-4 h-4" />
+                رفع
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {image && (
+              <div className="mt-2 w-16 h-16 rounded border overflow-hidden bg-muted">
+                <img src={image} alt="معاينة" className="w-full h-full object-cover" />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
