@@ -337,7 +337,10 @@ function ProductForm({
         toast.success('تمت إضافة المنتج');
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'حدث خطأ');
+  console.error("Supabase Error Details:", err);
+  const errorMsg = err?.message || err?.error_description || JSON.stringify(err);
+  toast.error(`خطأ: ${errorMsg}`);
+
     } finally {
       setLoading(false);
     }
