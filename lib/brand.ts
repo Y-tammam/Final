@@ -6,7 +6,7 @@ export const BRAND_CONFIG = {
   // هنا لو عندك svg/webp)، وهيظهر تلقائيًا في الهيدر والفوتر ولوحة التحكم
   // بدل الاسم النصي. لو الملف مش موجود، الموقع هيرجع تلقائيًا يعرض الاسم
   // النصي زي ما هو دلوقتي - يعني مفيش خطر إنك تكسري حاجة.
-  logoUrl: "/logo.png",
+  logoUrl: "logo.jpeg",
   tagline: "أحدث صيحات الموضة والملابس التركية الفاخرة في مصر",
   taglineEn: "Finest Turkish Women's Fashion, Delivered Across Egypt",
   currency: "EGP",
