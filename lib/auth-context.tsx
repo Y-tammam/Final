@@ -11,6 +11,8 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  // تحديث بيانات محدودة بس (الاسم ورقم الموبايل) - مش الإيميل أو الباسورد
+  updateProfile: (data: { full_name?: string; phone?: string }) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -65,8 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  // بنحدّث الاسم/الموبايل بس جوه user_metadata، من غير أي مساس بالإيميل أو
+  // الباسورد أو أي صلاحيات - عشان كده الحقول اللي بتتبعت من الفورم محدودة
+  // عمداً في مكان الاستخدام (صفحة الحساب).
+  const updateProfile = async (data: { full_name?: string; phone?: string }) => {
+    const { error } = await supabase.auth.updateUser({ data });
+    return { error: error?.message ?? null };
+  };
+
   return (
-    <AuthContext.Provider value={{ session, user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, signIn, signUp, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
