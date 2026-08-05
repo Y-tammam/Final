@@ -55,12 +55,18 @@ export function SiteHeader() {
             </button>
 
             {/* Logo */}
-            <Link href="/" className="flex flex-col items-center lg:items-start lg:flex-row lg:gap-3 group">
-              <BrandLogo className="h-9 lg:h-11 w-auto" textClassName="text-2xl lg:text-3xl tracking-tight text-foreground leading-none" />
-              <span className="hidden lg:block text-[10px] tracking-[0.3em] uppercase text-accent font-body mt-1">
-                Turkish Luxury
-              </span>
-            </Link>
+<Link href="/" className="flex flex-col items-center lg:items-start lg:flex-row lg:gap-4 group">
+  {/* كبّرنا الـ height هنا لـ h-14 على الموبايل و h-20 على الشاشات الكبيرة */}
+  <BrandLogo 
+    className="h-14 lg:h-20 w-auto transition-transform duration-300 group-hover:scale-105" 
+    textClassName="text-3xl lg:text-4xl tracking-tight text-foreground leading-none" 
+  />
+  
+  <span className="hidden lg:block text-[11px] tracking-[0.35em] uppercase text-accent font-body mt-2">
+    Turkish Luxury
+  </span>
+</Link>
+
 
             {/* Desktop nav */}
             <nav className="hidden lg:flex items-center gap-10">
