@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Instagram, Mail, Phone, MessageCircle } from 'lucide-react';
 import { BRAND_CONFIG } from '@/lib/brand';
+import { BrandLogo } from '@/components/ui/brand-logo';
 
 export function SiteFooter() {
   const waLink = `https://wa.me/${BRAND_CONFIG.contact.whatsapp.replace(/[^0-9]/g, '')}`;
@@ -13,9 +14,9 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {/* Brand */}
           <div>
-            <h3 className="font-display text-3xl font-semibold text-primary-foreground mb-3">
-              {BRAND_CONFIG.nameArabic}
-            </h3>
+            <div className="mb-3">
+              <BrandLogo className="h-10 w-auto" textClassName="text-3xl text-primary-foreground" />
+            </div>
             <p className="font-arabic text-background/70 text-sm leading-relaxed max-w-xs">
               {BRAND_CONFIG.tagline}
             </p>
