@@ -241,21 +241,36 @@ function ProductForm({
     e.target.value = '';
   };
 
-  const handleAddCategory = () => {
+    const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
-    const newCat: Category = {
-      id: `cat-${Date.now()}`,
-      name_ar: newCategoryName.trim(),
-      name_en: newCategoryName.trim(),
-      slug: newCategoryName.trim().toLowerCase().replace(/\s+/g, '-'),
-      created_at: new Date().toISOString(),
-    };
-    setCategories((prev) => [...prev, newCat]);
-    setForm((f) => ({ ...f, category_id: newCat.id }));
-    setNewCategoryName('');
-    setShowAddCategoryInput(false);
-    toast.success('تم إضافة الفئة');
+    
+    const slug = newCategoryName.trim().toLowerCase().replace(/\s+/g, '-');
+    
+    // حفظ الفئة في قاعدة بيانات Supabase مباشرة للحصول على ID صالح
+    const { data, error } = await supabase
+      .from('categories')
+      .insert({
+        name_ar: newCategoryName.trim(),
+        name_en: newCategoryName.trim(),
+        slug: slug,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      toast.error('تعذر إضافة الفئة لقاعدة البيانات: ' + error.message);
+      return;
+    }
+
+    if (data) {
+      setCategories((prev) => [...prev, data]);
+      setForm((f) => ({ ...f, category_id: data.id }));
+      setNewCategoryName('');
+      setShowAddCategoryInput(false);
+      toast.success('تمت إضافة الفئة بنجاح');
+    }
   };
+
 
   const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
 
