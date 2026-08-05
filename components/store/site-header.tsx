@@ -6,7 +6,7 @@ import { ShoppingBag, Search, Menu, X, User, LogOut } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
 import { AuthModal } from '@/components/ui/auth-modal';
-import { BRAND_CONFIG } from '@/lib/brand';
+import { BrandLogo } from '@/components/ui/brand-logo';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
@@ -56,9 +56,7 @@ export function SiteHeader() {
 
             {/* Logo */}
             <Link href="/" className="flex flex-col items-center lg:items-start lg:flex-row lg:gap-3 group">
-              <span className="font-display text-2xl lg:text-3xl font-semibold tracking-tight text-foreground leading-none">
-                {BRAND_CONFIG.nameArabic}
-              </span>
+              <BrandLogo className="h-9 lg:h-11 w-auto" textClassName="text-2xl lg:text-3xl tracking-tight text-foreground leading-none" />
               <span className="hidden lg:block text-[10px] tracking-[0.3em] uppercase text-accent font-body mt-1">
                 Turkish Luxury
               </span>
@@ -142,7 +140,7 @@ export function SiteHeader() {
           <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm fade-in" onClick={() => setMobileOpen(false)} />
           <div className="absolute top-0 right-0 bottom-0 w-72 max-w-[80%] bg-background shadow-2xl p-6 fade-up">
             <div className="flex items-center justify-between mb-8">
-              <span className="font-display text-2xl font-semibold">{BRAND_CONFIG.nameArabic}</span>
+              <BrandLogo className="h-8 w-auto" textClassName="text-2xl" />
               <button onClick={() => setMobileOpen(false)} aria-label="إغلاق">
                 <X className="w-6 h-6" strokeWidth={1.5} />
               </button>
