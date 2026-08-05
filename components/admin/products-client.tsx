@@ -245,7 +245,16 @@ const handleAddCategory = async () => {
   if (!newCategoryName.trim()) return;
 
   const name = newCategoryName.trim();
-  const slug = encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'));
+  // سبب مشكلة "الفئة بتضاف بس مش بتوصل لقاعدة البيانات":
+  // slug كان بيتعمل بـ encodeURIComponent لاسم عربي، وده بيحول كل حرف عربي
+  // لحوالي 9-12 حرف إنجليزي (زي %D9%81%D8%B3...)، فأي اسم فئة متوسط الطول
+  // كان بيطلع slug أطول من حد العمود في قاعدة البيانات (255 حرف) فيرفض
+  // الإدراج برسالة خطأ من Supabase. كمان الـ slug ده كان بيكسر روابط
+  // الفلترة بالفئة في المتجر (/shop?category=...) لأنه مش متطابق مع القيمة
+  // اللي بيرجعها المتصفح بعد فك التشفير. الحل: نولّد slug قصير وآمن
+  // (أحرف إنجليزية وأرقام بس) عشان دايماً يدخل في حدود العمود ويشتغل صح
+  // في الروابط. اسم الفئة بالعربي (name_ar) هو اللي بيظهر للمستخدم زي ما هو.
+  const slug = `cat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
   try {
     const { data, error } = await supabase
