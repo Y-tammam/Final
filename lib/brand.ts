@@ -1,7 +1,7 @@
 export const BRAND_CONFIG = {
   id: "brand_id_placeholder",
   name: "BRAND_NAME_PLACEHOLDER",
-  nameArabic: "أناقة",
+  nameArabic: "ثُريا",
   tagline: "أحدث صيحات الموضة والملابس التركية الفاخرة في مصر",
   taglineEn: "Finest Turkish Women's Fashion, Delivered Across Egypt",
   currency: "EGP",
@@ -16,7 +16,7 @@ export const BRAND_CONFIG = {
     instagram: "@brand_placeholder",
     supportEmail: "support@brandplaceholder.com",
   },
-  adminEmail: "admin@brandplaceholder.com",
+  adminEmail: "ttghnghylla@gmail.com",
   freeShippingThreshold: 3000,
 } as const;
 
