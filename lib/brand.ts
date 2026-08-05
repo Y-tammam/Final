@@ -18,7 +18,7 @@ export const BRAND_CONFIG = {
   },
   contact: {
     whatsapp: "+201000000000",
-    instagram: "@brand_placeholder",
+    instagram: "@soraia.eg",
     supportEmail: "support@brandplaceholder.com",
   },
   adminEmail: "ttghnghylla@gmail.com",
