@@ -340,10 +340,9 @@ function ProductForm({
   console.error("Supabase Error Details:", err);
   const errorMsg = err?.message || err?.error_description || JSON.stringify(err);
   toast.error(`خطأ: ${errorMsg}`);
-    }
     } finally {
       setLoading(false);
-    }
+    
   };
 
   return (
