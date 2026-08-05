@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BRAND_CONFIG } from '@/lib/brand';
+import { BrandLogo } from '@/components/ui/brand-logo';
 import { Loader2, Lock, Mail, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -61,7 +61,9 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-foreground flex items-center justify-center px-4" dir="rtl">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="font-display text-4xl font-semibold text-primary-foreground">{BRAND_CONFIG.nameArabic}</h1>
+          <div className="flex justify-center mb-2">
+            <BrandLogo className="h-14 w-auto" textClassName="text-4xl text-primary-foreground" />
+          </div>
           <p className="font-arabic text-primary-foreground/60 mt-2">لوحة تحكم الإدارة</p>
         </div>
 
