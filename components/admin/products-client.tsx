@@ -107,7 +107,7 @@ export function ProductsClient({ initialProducts, categories: initialCategories 
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-3">
                         <div className="relative w-12 h-14 shrink-0 overflow-hidden rounded-sm bg-muted">
-                          {product.images[0] && (
+                          {product.images && product.images[0] && (
                             <Image src={product.images[0]} alt={product.title_ar} fill sizes="48px" className="object-cover" />
                           )}
                         </div>
@@ -242,21 +242,20 @@ function ProductForm({
   };
 
   const handleAddCategory = () => {
-  if (!newCategoryName.trim()) return;
-  const newCat: Category = {
-    id: `cat-${Date.now()}`,
-    name_ar: newCategoryName.trim(),
-    name_en: newCategoryName.trim(),
-    slug: newCategoryName.trim().toLowerCase().replace(/\s+/g, '-'),
-    created_at: new Date().toISOString(),
+    if (!newCategoryName.trim()) return;
+    const newCat: Category = {
+      id: `cat-${Date.now()}`,
+      name_ar: newCategoryName.trim(),
+      name_en: newCategoryName.trim(),
+      slug: newCategoryName.trim().toLowerCase().replace(/\s+/g, '-'),
+      created_at: new Date().toISOString(),
+    };
+    setCategories((prev) => [...prev, newCat]);
+    setForm((f) => ({ ...f, category_id: newCat.id }));
+    setNewCategoryName('');
+    setShowAddCategoryInput(false);
+    toast.success('تم إضافة الفئة');
   };
-  setCategories((prev) => [...prev, newCat]);
-  setForm((f) => ({ ...f, category_id: newCat.id }));
-  setNewCategoryName('');
-  setShowAddCategoryInput(false);
-  toast.success('تم إضافة الفئة');
-};
-
 
   const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
 
@@ -300,7 +299,6 @@ function ProductForm({
         const { data, error } = await supabase.from('products').update(payload).eq('id', product.id).select('*, category:categories(*), variants:product_variants(*)').single();
         if (error) throw error;
 
-        // Update variants: delete old, insert new
         await supabase.from('product_variants').delete().eq('product_id', product.id);
         const variantsToInsert = variants.map((v) => ({
           product_id: product.id,
@@ -311,14 +309,15 @@ function ProductForm({
           sku: v.sku || null,
         }));
         if (variantsToInsert.length > 0) {
-          const { data: newVariants } = await supabase.from('product_variants').insert(variantsToInsert).select('*');
+          const { data: newVariants, error: vErr } = await supabase.from('product_variants').insert(variantsToInsert).select('*');
+          if (vErr) throw vErr;
           if (newVariants) data.variants = newVariants;
         }
         onSave(data as Product);
         toast.success('تم تحديث المنتج');
       } else {
         const { data, error } = await supabase.from('products').insert(payload).select('*, category:categories(*)').single();
-        if (error) throw data;
+        if (error) throw error;
 
         const variantsToInsert = variants.map((v) => ({
           product_id: data.id,
@@ -331,19 +330,19 @@ function ProductForm({
         let newVariants = [];
         if (variantsToInsert.length > 0) {
           const vRes = await supabase.from('product_variants').insert(variantsToInsert).select('*');
+          if (vRes.error) throw vRes.error;
           newVariants = vRes.data ?? [];
         }
         onSave({ ...data, variants: newVariants } as Product);
         toast.success('تمت إضافة المنتج');
       }
-    } catch (err) {
-  console.error("Supabase Error Details:", err);
-  const errorMsg = err?.message || err?.error_description || JSON.stringify(err);
-  toast.error(`خطأ: ${errorMsg}`);
-    }
-  } finally {
+    } catch (err: any) {
+      console.error("Supabase error details:", err);
+      const msg = err?.message || err?.details || 'حدث خطأ أثناء الحفظ';
+      toast.error(`خطأ: ${msg}`);
+    } finally {
       setLoading(false);
-    
+    }
   };
 
   return (
