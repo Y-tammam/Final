@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { BRAND_CONFIG } from '@/lib/brand';
+import { BrandLogo } from '@/components/ui/brand-logo';
 import { LayoutDashboard, Package, ShoppingCart, Truck, LogOut, Store, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -30,7 +30,7 @@ export function AdminSidebar() {
     <div className="flex flex-col h-full">
       <div className="px-6 py-6 border-b border-border">
         <Link href="/admin/dashboard" className="block" onClick={() => setMobileOpen(false)}>
-          <h1 className="font-display text-2xl font-semibold text-foreground">{BRAND_CONFIG.nameArabic}</h1>
+          <BrandLogo className="h-9 w-auto" textClassName="text-2xl text-foreground" />
           <span className="font-arabic text-[10px] tracking-widest text-accent uppercase">Admin Panel</span>
         </Link>
       </div>
