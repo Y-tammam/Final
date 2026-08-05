@@ -2,6 +2,11 @@ export const BRAND_CONFIG = {
   id: "brand_id_placeholder",
   name: "soraia",
   nameArabic: "ثُريا",
+  // ضعي ملف اللوجو بتاعك في مجلد public/ باسم logo.png (أو غيّري الامتداد
+  // هنا لو عندك svg/webp)، وهيظهر تلقائيًا في الهيدر والفوتر ولوحة التحكم
+  // بدل الاسم النصي. لو الملف مش موجود، الموقع هيرجع تلقائيًا يعرض الاسم
+  // النصي زي ما هو دلوقتي - يعني مفيش خطر إنك تكسري حاجة.
+  logoUrl: "/logo.png",
   tagline: "أحدث صيحات الموضة والملابس التركية الفاخرة في مصر",
   taglineEn: "Finest Turkish Women's Fashion, Delivered Across Egypt",
   currency: "EGP",
