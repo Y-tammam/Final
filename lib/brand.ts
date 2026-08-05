@@ -1,6 +1,6 @@
 export const BRAND_CONFIG = {
   id: "brand_id_placeholder",
-  name: "BRAND_NAME_PLACEHOLDER",
+  name: "soraia",
   nameArabic: "ثُريا",
   tagline: "أحدث صيحات الموضة والملابس التركية الفاخرة في مصر",
   taglineEn: "Finest Turkish Women's Fashion, Delivered Across Egypt",
