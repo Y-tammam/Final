@@ -241,35 +241,46 @@ function ProductForm({
     e.target.value = '';
   };
 
-    const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    
-    const slug = newCategoryName.trim().toLowerCase().replace(/\s+/g, '-');
-    
-    // حفظ الفئة في قاعدة بيانات Supabase مباشرة للحصول على ID صالح
+const handleAddCategory = async () => {
+  if (!newCategoryName.trim()) return;
+
+  const name = newCategoryName.trim();
+  const slug = encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'));
+
+  try {
     const { data, error } = await supabase
       .from('categories')
-      .insert({
-        name_ar: newCategoryName.trim(),
-        name_en: newCategoryName.trim(),
-        slug: slug,
-      })
-      .select('*')
+      .insert([
+        {
+          name_ar: name,
+          name_en: name,
+          slug: slug,
+        }
+      ])
+      .select()
       .single();
 
     if (error) {
-      toast.error('تعذر إضافة الفئة لقاعدة البيانات: ' + error.message);
+      toast.error(`تعذر إضافة الفئة: ${error.message}`);
       return;
     }
 
     if (data) {
+      // 1. إضافة الفئة الجديدة إلى State الفئات حتى تظهر في القائمة فوراً
       setCategories((prev) => [...prev, data]);
+      
+      // 2. اختيار الفئة الجديدة تلقائياً في النموذج
       setForm((f) => ({ ...f, category_id: data.id }));
+
       setNewCategoryName('');
       setShowAddCategoryInput(false);
-      toast.success('تمت إضافة الفئة بنجاح');
+      toast.success('تمت إضافة الفئة بنجاح واختيارها');
     }
-  };
+  } catch (err: any) {
+    toast.error('حدث خطأ غير متوقع');
+  }
+};
+
 
 
   const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
