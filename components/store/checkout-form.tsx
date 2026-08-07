@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   ShieldCheck, Truck, Eye, MessageCircle, Loader2, CheckCircle2, ArrowLeft,
-  UserCircle2, Upload, Copy, Check, SkipForward,
+  UserCircle2, Upload, Copy, Check, SkipForward, Camera,
 } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AuthModal } from '@/components/ui/auth-modal';
+import { receiptFileToCompressedDataURL } from '@/lib/image-upload';
 
 type Step = 'form' | 'vodafone-receipt' | 'success';
 
@@ -164,14 +165,18 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
     }
   };
 
-  const handleReceiptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // بنضغط صورة الإيصال لـ WebP قبل التخزين (مش base64 خام) عشان تفضل صغيرة
+  // - شوفي receiptFileToCompressedDataURL في lib/image-upload.ts.
+  const handleReceiptFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') setReceiptPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await receiptFileToCompressedDataURL(file);
+      setReceiptPreview(compressed);
+    } catch (err) {
+      toast.error('تعذرت قراءة الصورة، جرّبي صورة تانية');
+    }
   };
 
   const handleUploadReceipt = async () => {
@@ -254,22 +259,32 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
         </div>
 
         <div className="space-y-3">
-          <label className="block">
-            <span className="font-arabic text-sm text-foreground/80 block mb-2">صورة إيصال التحويل</span>
-            <div className="border-2 border-dashed border-border rounded-sm p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
-              {receiptPreview ? (
-                <div className="relative w-full max-w-[220px] mx-auto aspect-[3/4] overflow-hidden rounded-sm">
-                  <img src={receiptPreview} alt="إيصال التحويل" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Upload className="w-8 h-8" strokeWidth={1.5} />
-                  <span className="font-arabic text-sm">اضغطي لاختيار صورة الإيصال من جهازك</span>
-                </div>
-              )}
-              <input type="file" accept="image/*" capture="environment" onChange={handleReceiptFile} className="hidden" />
+          <span className="font-arabic text-sm text-foreground/80 block mb-2">صورة إيصال التحويل</span>
+          <div className="border-2 border-dashed border-border rounded-sm p-6 text-center">
+            {receiptPreview ? (
+              <div className="relative w-full max-w-[220px] mx-auto aspect-[3/4] overflow-hidden rounded-sm mb-4">
+                <img src={receiptPreview} alt="إيصال التحويل" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground mb-4">
+                <Upload className="w-8 h-8" strokeWidth={1.5} />
+                <span className="font-arabic text-sm">التقطي صورة للإيصال أو ارفعيها من الجهاز</span>
+              </div>
+            )}
+            {/* اختيار صريح بين الكاميرا (capture) واختيار صورة محفوظة من الجهاز */}
+            <div className="flex gap-2 justify-center">
+              <label className="cursor-pointer bg-foreground text-primary-foreground font-arabic text-sm px-4 py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5">
+                <Camera className="w-4 h-4" />
+                التقاط صورة
+                <input type="file" accept="image/*" capture="environment" onChange={handleReceiptFile} className="hidden" />
+              </label>
+              <label className="cursor-pointer border border-border font-arabic text-sm px-4 py-2.5 rounded-sm hover:bg-secondary transition-colors flex items-center gap-1.5">
+                <Upload className="w-4 h-4" />
+                اختيار من الجهاز
+                <input type="file" accept="image/*" onChange={handleReceiptFile} className="hidden" />
+              </label>
             </div>
-          </label>
+          </div>
 
           <button
             type="button"
