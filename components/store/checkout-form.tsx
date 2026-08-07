@@ -1,23 +1,30 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { ShieldCheck, Truck, Eye, MessageCircle, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
+import {
+  ShieldCheck, Truck, Eye, MessageCircle, Loader2, CheckCircle2, ArrowLeft,
+  UserCircle2, Upload, Copy, Check, SkipForward,
+} from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
 import { priceEGP } from '@/lib/format';
-import { BRAND_CONFIG, EGYPT_GOVERNORATES, PAYMENT_METHODS } from '@/lib/brand';
+import { BRAND_CONFIG, PAYMENT_METHODS, DISABLED_PAYMENT_METHODS } from '@/lib/brand';
 import type { ShippingRate } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { AuthModal } from '@/components/ui/auth-modal';
+
+type Step = 'form' | 'vodafone-receipt' | 'success';
 
 export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] }) {
   const { items, subtotal, clearCart } = useCart();
-  const { user } = useAuth();
-  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
+  const [step, setStep] = useState<Step>('form');
+  const [authOpen, setAuthOpen] = useState(false);
 
   const [form, setForm] = useState({
     customer_name: '',
@@ -29,8 +36,34 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
     payment_method: 'COD',
     allow_inspection: true,
   });
+  const [saveInfo, setSaveInfo] = useState(true);
+  const [prefilled, setPrefilled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<{ orderNumber: number; total: number } | null>(null);
+
+  // بيانات الطلب اللي بيحتاجها ستيب رفع إيصال فودافون كاش
+  const [pendingOrder, setPendingOrder] = useState<{ id: string; orderNumber: number; total: number } | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // لما العميل يكون مسجّل دخول، بنملأ بياناته المحفوظة تلقائياً (اسم،
+  // موبايل، واتساب، محافظة، عنوان) بدل ما تكتبهم من الأول في كل مرة.
+  // ده بيحصل مرة واحدة بس عشان لو العميل عدّل حاجة في الفورم منسيبهاش.
+  useEffect(() => {
+    if (!prefilled && user) {
+      const meta = user.user_metadata ?? {};
+      setForm((f) => ({
+        ...f,
+        customer_name: meta.full_name || f.customer_name,
+        customer_phone: meta.phone || f.customer_phone,
+        whatsapp_phone: meta.whatsapp_phone || f.whatsapp_phone,
+        governorate: meta.governorate || f.governorate,
+        city_address: meta.city_address || f.city_address,
+      }));
+      setPrefilled(true);
+    }
+  }, [user, prefilled]);
 
   const selectedRate = useMemo(
     () => shippingRates.find((r) => r.governorate_ar === form.governorate),
@@ -50,6 +83,8 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
       return 'الرجاء إدخال رقم هاتف صحيح';
     if (!form.governorate) return 'الرجاء اختيار المحافظة';
     if (!form.city_address.trim()) return 'الرجاء إدخال العنوان بالتفصيل';
+    if (DISABLED_PAYMENT_METHODS.includes(form.payment_method as keyof typeof PAYMENT_METHODS))
+      return 'طريقة الدفع دي غير متاحة حالياً، برجاء اختيار طريقة أخرى';
     return null;
   };
 
@@ -98,8 +133,30 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
 
-      setSuccess({ orderNumber: order.order_number, total });
+      // لو العميلة مسجلة دخول واختارت تحفظ بياناتها، بنحدّث الحساب
+      // ببيانات الشحن دي عشان تتملى تلقائي في الطلب الجاي.
+      if (user && saveInfo) {
+        // ما بنستناش نتيجة الحفظ ده عشان ميعطلش رحلة تأكيد الطلب لو فشل
+        supabase.auth.updateUser({
+          data: {
+            full_name: form.customer_name.trim(),
+            phone: form.customer_phone.trim(),
+            whatsapp_phone: form.whatsapp_phone.trim() || null,
+            governorate: form.governorate,
+            city_address: form.city_address.trim(),
+          },
+        });
+      }
+
       clearCart();
+
+      if (form.payment_method === 'Vodafone Cash') {
+        setPendingOrder({ id: order.id, orderNumber: order.order_number, total });
+        setStep('vodafone-receipt');
+      } else {
+        setSuccess({ orderNumber: order.order_number, total });
+        setStep('success');
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'حدث خطأ، حاولي مرة أخرى');
     } finally {
@@ -107,8 +164,138 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
     }
   };
 
+  const handleReceiptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') setReceiptPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadReceipt = async () => {
+    if (!pendingOrder) return;
+    if (!receiptPreview) {
+      toast.error('برجاء اختيار صورة الإيصال أولاً');
+      return;
+    }
+    setUploadingReceipt(true);
+    const { error } = await supabase
+      .from('orders')
+      .update({ payment_receipt_url: receiptPreview })
+      .eq('id', pendingOrder.id);
+    setUploadingReceipt(false);
+    if (error) {
+      toast.error('تعذر رفع الإيصال، جرّبي تاني أو ابعتيه عبر واتساب');
+      return;
+    }
+    toast.success('تم رفع الإيصال بنجاح');
+    setSuccess({ orderNumber: pendingOrder.orderNumber, total: pendingOrder.total });
+    setStep('success');
+  };
+
+  const handleSkipReceipt = () => {
+    if (!pendingOrder) return;
+    setSuccess({ orderNumber: pendingOrder.orderNumber, total: pendingOrder.total });
+    setStep('success');
+  };
+
+  const copyVodafoneNumber = () => {
+    navigator.clipboard.writeText(BRAND_CONFIG.vodafoneCash.number);
+    setCopied(true);
+    toast.success('تم نسخ الرقم');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // شاشة رفع إيصال فودافون كاش
+  if (step === 'vodafone-receipt' && pendingOrder) {
+    return (
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16 lg:py-24">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-5">
+            <MessageCircle className="w-8 h-8 text-accent" strokeWidth={1.5} />
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold mb-2">تم تسجيل طلبك #{pendingOrder.orderNumber}</h1>
+          <p className="font-arabic text-muted-foreground leading-relaxed">
+            خطوة أخيرة: حوّلي المبلغ عبر فودافون كاش وارفعي صورة الإيصال هنا لتأكيد الدفع بسرعة
+          </p>
+        </div>
+
+        <div className="bg-secondary/50 rounded-sm p-6 mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="font-arabic text-sm text-muted-foreground">المبلغ المطلوب تحويله</span>
+            <span className="font-body text-xl font-semibold num-rtl">{priceEGP(pendingOrder.total)} ج.م</span>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-border">
+            <span className="font-arabic text-sm text-muted-foreground">رقم فودافون كاش</span>
+            <button
+              type="button"
+              onClick={copyVodafoneNumber}
+              className="flex items-center gap-2 font-body text-lg font-semibold num-rtl bg-background border border-border px-3 py-1.5 rounded-sm hover:border-accent transition-colors"
+              dir="ltr"
+            >
+              {BRAND_CONFIG.vodafoneCash.number}
+              {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="font-arabic text-sm text-muted-foreground">اسم صاحب الرقم</span>
+            <span className="font-arabic text-sm">{BRAND_CONFIG.vodafoneCash.holderName}</span>
+          </div>
+        </div>
+
+        <div className="bg-accent/5 border border-accent/20 rounded-sm p-4 mb-6">
+          <p className="font-arabic text-sm leading-relaxed">
+            1. حوّلي المبلغ من فودافون كاش بتاعك للرقم اللي فوق.<br />
+            2. اضغطي على "التقاط صورة" وصوّري رسالة التأكيد (الإيصال)، أو ارفعي سكرين شوت منها.<br />
+            3. اضغطي "رفع الإيصال وتأكيد الطلب".
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block">
+            <span className="font-arabic text-sm text-foreground/80 block mb-2">صورة إيصال التحويل</span>
+            <div className="border-2 border-dashed border-border rounded-sm p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
+              {receiptPreview ? (
+                <div className="relative w-full max-w-[220px] mx-auto aspect-[3/4] overflow-hidden rounded-sm">
+                  <img src={receiptPreview} alt="إيصال التحويل" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Upload className="w-8 h-8" strokeWidth={1.5} />
+                  <span className="font-arabic text-sm">اضغطي لاختيار صورة الإيصال من جهازك</span>
+                </div>
+              )}
+              <input type="file" accept="image/*" capture="environment" onChange={handleReceiptFile} className="hidden" />
+            </div>
+          </label>
+
+          <button
+            type="button"
+            onClick={handleUploadReceipt}
+            disabled={uploadingReceipt || !receiptPreview}
+            className="w-full bg-foreground text-primary-foreground font-arabic py-3.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {uploadingReceipt ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+            رفع الإيصال وتأكيد الطلب
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSkipReceipt}
+            className="w-full font-arabic text-sm text-muted-foreground hover:text-foreground py-2 flex items-center justify-center gap-2"
+          >
+            <SkipForward className="w-4 h-4" />
+            تخطي الآن، وسأرسل الإيصال لاحقاً عبر واتساب
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Success screen
-  if (success) {
+  if (step === 'success' && success) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-20 lg:py-28 text-center">
         <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6 scale-in">
@@ -165,7 +352,27 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
       <h1 className="font-display text-3xl sm:text-4xl font-semibold mb-2">إتمام الطلب</h1>
-      <p className="font-arabic text-muted-foreground mb-10">أدخلي بياناتك وستصلك قطعك المفضلة لباب البيت</p>
+      <p className="font-arabic text-muted-foreground mb-6">أدخلي بياناتك وستصلك قطعك المفضلة لباب البيت</p>
+
+      {/* بانر تسجيل الدخول - اختياري، الطلب كـ زائر شغال عادي من غيره */}
+      {!authLoading && !user && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-secondary/50 border border-border rounded-sm px-5 py-4 mb-8">
+          <div className="flex items-center gap-3">
+            <UserCircle2 className="w-5 h-5 text-accent shrink-0" strokeWidth={1.5} />
+            <p className="font-arabic text-sm text-foreground/80">
+              سجّلي دخولك لحفظ بياناتك وتتملى تلقائياً في طلباتك القادمة، أو أكملي كزائرة عادي
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAuthOpen(true)}
+            className="font-arabic text-sm text-accent hover:underline shrink-0"
+          >
+            تسجيل الدخول / إنشاء حساب
+          </button>
+        </div>
+      )}
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">
         {/* Form fields */}
@@ -254,6 +461,17 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
                   placeholder="أي تعليمات خاصة بالتوصيل..."
                 />
               </div>
+              {user && (
+                <label className="flex items-center gap-3 p-3 bg-secondary/40 rounded-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveInfo}
+                    onChange={(e) => setSaveInfo(e.target.checked)}
+                    className="accent-accent w-4 h-4"
+                  />
+                  <span className="font-arabic text-sm">احفظي بياناتي دي لطلباتي القادمة</span>
+                </label>
+              )}
             </div>
           </div>
 
@@ -264,26 +482,50 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
               طريقة الدفع
             </h2>
             <div className="space-y-3">
-              {(Object.keys(PAYMENT_METHODS) as (keyof typeof PAYMENT_METHODS)[]).map((method) => (
-                <label
-                  key={method}
-                  className={cn(
-                    'flex items-center gap-3 p-4 border rounded-sm cursor-pointer transition-all',
-                    form.payment_method === method ? 'border-accent bg-accent/5' : 'border-border hover:border-foreground/30'
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    value={method}
-                    checked={form.payment_method === method}
-                    onChange={() => update('payment_method', method)}
-                    className="accent-accent"
-                  />
-                  <span className="font-arabic text-sm">{PAYMENT_METHODS[method]}</span>
-                </label>
-              ))}
+              {(Object.keys(PAYMENT_METHODS) as (keyof typeof PAYMENT_METHODS)[]).map((method) => {
+                const isDisabled = DISABLED_PAYMENT_METHODS.includes(method);
+                return (
+                  <label
+                    key={method}
+                    className={cn(
+                      'flex items-center justify-between gap-3 p-4 border rounded-sm transition-all',
+                      isDisabled
+                        ? 'opacity-50 cursor-not-allowed border-border'
+                        : cn(
+                            'cursor-pointer',
+                            form.payment_method === method ? 'border-accent bg-accent/5' : 'border-border hover:border-foreground/30'
+                          )
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value={method}
+                        checked={form.payment_method === method}
+                        onChange={() => !isDisabled && update('payment_method', method)}
+                        disabled={isDisabled}
+                        className="accent-accent"
+                      />
+                      <span className="font-arabic text-sm">{PAYMENT_METHODS[method]}</span>
+                    </div>
+                    {isDisabled && (
+                      <span className="font-arabic text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-sm">
+                        قريباً
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
+
+            {form.payment_method === 'Vodafone Cash' && (
+              <div className="mt-4 bg-accent/5 border border-accent/20 rounded-sm p-3.5">
+                <p className="font-arabic text-xs text-foreground/80 leading-relaxed">
+                  بعد تأكيد الطلب هيظهرلك رقم فودافون كاش وهتقدري ترفعي صورة إيصال التحويل مباشرة.
+                </p>
+              </div>
+            )}
 
             <label className="flex items-center gap-3 mt-5 p-4 bg-secondary/40 rounded-sm cursor-pointer">
               <input

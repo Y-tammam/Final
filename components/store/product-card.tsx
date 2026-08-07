@@ -8,7 +8,7 @@ import { useCart } from '@/lib/cart-context';
 import { priceEGP, discountPercent } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, isNew = false }: { product: Product; isNew?: boolean }) {
   const { addItem } = useCart();
   const effectivePrice = product.sale_price_egp ?? product.price_egp;
   const discount = discountPercent(product.price_egp, product.sale_price_egp);
@@ -32,6 +32,13 @@ export function ProductCard({ product }: { product: Product }) {
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover group-hover:scale-105 transition-transform duration-700 ease-luxury"
           />
+        )}
+        {isNew && (
+          <div className="absolute top-3 left-3">
+            <span className="bg-accent text-accent-foreground text-[10px] font-arabic font-semibold px-2.5 py-1 rounded-sm">
+              جديد
+            </span>
+          </div>
         )}
         {/* Badges */}
         <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-start">

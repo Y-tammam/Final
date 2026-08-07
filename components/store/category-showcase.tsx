@@ -28,9 +28,9 @@ export function CategoryShowcase({ categories, products }: { categories: Categor
               className="group relative aspect-[4/5] overflow-hidden rounded-sm bg-foreground fade-up"
               style={{ animationDelay: `${i * 120}ms` }}
             >
-              {CATEGORY_IMAGES[cat.slug] && (
+              {(cat.image_url || CATEGORY_IMAGES[cat.slug]) && (
                 <Image
-                  src={CATEGORY_IMAGES[cat.slug]}
+                  src={cat.image_url || CATEGORY_IMAGES[cat.slug]}
                   alt={cat.name_ar}
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
