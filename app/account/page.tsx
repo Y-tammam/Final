@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { User, Package, LogOut, Loader2, Calendar, ChevronDown, Pencil, Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { priceEGP } from '@/lib/format';
-import { ORDER_STATUS } from '@/lib/brand';
+import { ORDER_STATUS, EGYPT_GOVERNORATES } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -28,10 +28,13 @@ export default function AccountPage() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
-  // تعديل معلومات الحساب - الاسم ورقم الموبايل بس
+  // تعديل معلومات الحساب - الاسم ورقم الموبايل وعنوان الشحن الافتراضي
   const [editingProfile, setEditingProfile] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [governorate, setGovernorate] = useState('');
+  const [cityAddress, setCityAddress] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
@@ -44,6 +47,9 @@ export default function AccountPage() {
     if (user) {
       setFullName(user.user_metadata?.full_name ?? '');
       setPhone(user.user_metadata?.phone ?? '');
+      setWhatsappPhone(user.user_metadata?.whatsapp_phone ?? '');
+      setGovernorate(user.user_metadata?.governorate ?? '');
+      setCityAddress(user.user_metadata?.city_address ?? '');
     }
   }, [user]);
 
@@ -76,7 +82,13 @@ export default function AccountPage() {
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);
-    const { error } = await updateProfile({ full_name: fullName.trim(), phone: phone.trim() });
+    const { error } = await updateProfile({
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      whatsapp_phone: whatsappPhone.trim(),
+      governorate,
+      city_address: cityAddress.trim(),
+    });
     setSavingProfile(false);
     if (error) {
       toast.error('تعذر حفظ التعديلات');
@@ -108,6 +120,12 @@ export default function AccountPage() {
               {user.user_metadata?.phone && (
                 <p className="text-sm text-muted-foreground dir-ltr text-right">{user.user_metadata.phone}</p>
               )}
+              {user.user_metadata?.governorate && (
+                <p className="text-sm text-muted-foreground text-right">
+                  {user.user_metadata.governorate}
+                  {user.user_metadata?.city_address ? ` — ${user.user_metadata.city_address}` : ''}
+                </p>
+              )}
             </div>
           </div>
 
@@ -134,7 +152,9 @@ export default function AccountPage() {
           </div>
         </div>
 
-        {/* تعديل الاسم ورقم الموبايل بس - مش الإيميل ولا الباسورد */}
+        {/* تعديل الاسم، الموبايل، الواتساب، وعنوان الشحن الافتراضي - مش
+            الإيميل ولا الباسورد. العنوان ده هو اللي بيتملى تلقائي في فورم
+            الشيك أوت في كل مرة، فمش محتاجة تكتبيه من الأول كل مرة تطلبي. */}
         {editingProfile && (
           <div className="mt-6 pt-6 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -156,6 +176,39 @@ export default function AccountPage() {
                 className="w-full bg-background border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
+            <div>
+              <label className="text-sm text-foreground/80 block mb-1.5">واتساب (اختياري)</label>
+              <input
+                type="tel"
+                value={whatsappPhone}
+                onChange={(e) => setWhatsappPhone(e.target.value)}
+                dir="ltr"
+                className="w-full bg-background border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-foreground/80 block mb-1.5">المحافظة</label>
+              <select
+                value={governorate}
+                onChange={(e) => setGovernorate(e.target.value)}
+                className="w-full bg-background border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">اختاري المحافظة</option>
+                {EGYPT_GOVERNORATES.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-sm text-foreground/80 block mb-1.5">العنوان بالتفصيل</label>
+              <textarea
+                value={cityAddress}
+                onChange={(e) => setCityAddress(e.target.value)}
+                rows={2}
+                className="w-full bg-background border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                placeholder="المدينة، الشارع، رقم العمارة، الشقة..."
+              />
+            </div>
             <div className="sm:col-span-2 flex gap-3">
               <button
                 onClick={handleSaveProfile}
@@ -170,6 +223,9 @@ export default function AccountPage() {
                   setEditingProfile(false);
                   setFullName(user.user_metadata?.full_name ?? '');
                   setPhone(user.user_metadata?.phone ?? '');
+                  setWhatsappPhone(user.user_metadata?.whatsapp_phone ?? '');
+                  setGovernorate(user.user_metadata?.governorate ?? '');
+                  setCityAddress(user.user_metadata?.city_address ?? '');
                 }}
                 className="inline-flex items-center gap-2 border border-border px-5 py-2 rounded-sm text-sm hover:bg-secondary transition-colors"
               >
@@ -180,6 +236,7 @@ export default function AccountPage() {
           </div>
         )}
       </div>
+
 
       <div>
         <h2 className="font-display text-xl font-semibold mb-6 flex items-center gap-2">
