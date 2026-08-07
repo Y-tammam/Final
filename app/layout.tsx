@@ -4,6 +4,7 @@ import { Playfair_Display, Plus_Jakarta_Sans, Cairo } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import { CartProvider } from '@/lib/cart-context';
 import { AuthProvider } from '@/lib/auth-context';
+import { BRAND_CONFIG } from '@/lib/brand';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -26,14 +27,21 @@ const cairo = Cairo({
   weight: ['300', '400', '500', '600', '700', '800'],
 });
 
+// اسم الموقع اللي بيظهر في تاب المتصفح ونتائج البحث ومعاينة الروابط (WhatsApp/Facebook)
+// بييجي دلوقتي من BRAND_CONFIG بدل ما يكون مكتوب يدوي، عشان يتغير مكان واحد بس
+// (lib/brand.ts) وينعكس هنا تلقائي - مفيش داعي لتعديل الملف ده تاني لو الاسم اتغير.
+const SITE_TITLE = `${BRAND_CONFIG.nameArabic} | ${BRAND_CONFIG.tagline}`;
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://anaqa.eg'),
-  title: 'أناقة | ملابس نسائية تركية فاخرة في مصر',
-  description: 'أحدث صيحات الموضة والملابس التركية الفاخرة للنساء في مصر. عبايات، فساتين، وكاجوال بخامات تركية 100%. معاينة قبل الدفع وشحن سريع لكافة المحافظات.',
-  keywords: ['ملابس تركية', 'عبايات', 'فساتين', 'موضة نسائية', 'مصر', 'أزياء فاخرة'],
+  // ⚠️ لازم تغيّري الدومين ده لدومينك الحقيقي (اللي هتربطيه بـ Netlify) عشان
+  // روابط الصور والمعاينة (Open Graph) تشتغل صح لما حد يشارك رابط الموقع.
+  metadataBase: new URL('https://soraia.eg'),
+  title: SITE_TITLE,
+  description: BRAND_CONFIG.tagline,
+  keywords: ['ملابس تركية', 'عبايات', 'فساتين', 'موضة نسائية', 'مصر', 'أزياء فاخرة', BRAND_CONFIG.nameArabic],
   openGraph: {
-    title: 'أناقة | ملابس نسائية تركية فاخرة في مصر',
-    description: 'أحدث صيحات الموضة والملابس التركية الفاخرة للنساء في مصر',
+    title: SITE_TITLE,
+    description: BRAND_CONFIG.tagline,
     type: 'website',
     locale: 'ar_EG',
   },
