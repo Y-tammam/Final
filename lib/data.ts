@@ -13,6 +13,20 @@ export async function getFeaturedProducts(): Promise<Product[]> {
   return (data ?? []) as Product[];
 }
 
+// آخر منتجات اتضافت للمتجر (وصلنا حديثاً) - بتتحدد بترتيب created_at
+// تنازلياً، فمش محتاجين أي عمود جديد في قاعدة البيانات.
+export async function getNewArrivals(limit = 5): Promise<Product[]> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, category:categories(*), variants:product_variants(*)')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return (data ?? []) as Product[];
+}
+
 export async function getAllProducts(): Promise<Product[]> {
   const supabase = await supabaseServer();
   const { data, error } = await supabase
