@@ -1,5 +1,14 @@
-import { redirect } from 'next/navigation';
+import { getCategoriesAdmin } from '@/lib/admin-data';
+import { CategoriesClient } from '@/components/admin/categories-client';
+import { AdminGuard } from '@/components/admin/admin-guard';
 
-export default function AdminPage() {
-  redirect('/admin/dashboard');
+export const dynamic = 'force-dynamic';
+
+export default async function AdminCategoriesPage() {
+  const categories = await getCategoriesAdmin();
+  return (
+    <AdminGuard>
+      <CategoriesClient initialCategories={categories as any} />
+    </AdminGuard>
+  );
 }
