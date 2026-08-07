@@ -6,6 +6,7 @@ import { Plus, Search, Pencil, Trash2, X, Package, Loader2, Eye, EyeOff, Upload 
 import type { Product, Category } from '@/lib/types';
 import { priceEGP } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
+import { uploadImageToStorage } from '@/lib/image-upload';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -208,6 +209,7 @@ function ProductForm({
   });
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [showAddCategoryInput, setShowAddCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [variants, setVariants] = useState(
@@ -225,20 +227,26 @@ function ProductForm({
     setNewImageUrl('');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // بترفع كل صورة كملف WebP حقيقي في Supabase Storage بدل ما تتحول
+  // base64 وتتخزن كنص ضخم في قاعدة البيانات - ده اللي كان بيسبب بطء
+  // شديد في تحميل صفحات المنتجات (شوفي lib/image-upload.ts).
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setImages((prev) => [...prev, reader.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    const fileList = Array.from(files);
     e.target.value = '';
+
+    setUploadingImages(true);
+    try {
+      for (const file of fileList) {
+        const url = await uploadImageToStorage(file, 'products');
+        setImages((prev) => [...prev, url]);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'تعذر رفع الصورة، حاولي مرة أخرى');
+    } finally {
+      setUploadingImages(false);
+    }
   };
 
 const handleAddCategory = async () => {
@@ -481,10 +489,13 @@ const handleAddCategory = async () => {
               />
               <button type="button" onClick={addImage} className="font-arabic bg-secondary px-3 py-2 rounded-sm text-sm hover:bg-accent/20 transition-colors">إضافة URL</button>
               
-              <label className="font-arabic bg-foreground text-primary-foreground px-3 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
-                <Upload className="w-4 h-4" />
-                رفع صورة
-                <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
+              <label className={cn(
+                "font-arabic bg-foreground text-primary-foreground px-3 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
+                uploadingImages && "opacity-60 pointer-events-none"
+              )}>
+                {uploadingImages ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {uploadingImages ? 'جاري الرفع...' : 'رفع صورة'}
+                <input type="file" accept="image/*" multiple onChange={handleFileUpload} disabled={uploadingImages} className="hidden" />
               </label>
             </div>
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">

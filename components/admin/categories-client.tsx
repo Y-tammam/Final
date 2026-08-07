@@ -6,6 +6,7 @@ import type { Category } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { uploadImageToStorage } from '@/lib/image-upload';
 
 // نفس منطق توليد الـ slug المستخدم في نموذج المنتجات: اسم عشوائي آمن
 // (حروف إنجليزية وأرقام بس) عشان مايكسرش الروابط أو يتجاوز حد العمود
@@ -18,18 +19,6 @@ function generateSlug(nameEn: string) {
     .replace(/^-+|-+$/g, '');
   if (cleaned) return cleaned;
   return `cat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') resolve(reader.result);
-      else reject(new Error('تعذرت قراءة الصورة'));
-    };
-    reader.onerror = () => reject(new Error('تعذرت قراءة الصورة'));
-    reader.readAsDataURL(file);
-  });
 }
 
 export function CategoriesClient({ initialCategories }: { initialCategories: Category[] }) {
@@ -45,6 +34,8 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
     image_url: null,
   });
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [uploadingNewImage, setUploadingNewImage] = useState(false);
+  const [uploadingEditImage, setUploadingEditImage] = useState(false);
 
   const startEdit = (cat: Category) => {
     setEditingId(cat.id);
@@ -53,29 +44,35 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
 
   const cancelEdit = () => setEditingId(null);
 
+  // برضو بترفع كملف WebP حقيقي على Supabase Storage بدل base64 (نفس
+  // منطق صور المنتجات) - شوفي lib/image-upload.ts.
   const handleNewImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = '';
+    setUploadingNewImage(true);
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setNewCat((p) => ({ ...p, image_url: dataUrl }));
-    } catch {
-      toast.error('تعذر رفع الصورة');
+      const url = await uploadImageToStorage(file, 'categories');
+      setNewCat((p) => ({ ...p, image_url: url }));
+    } catch (err: any) {
+      toast.error(err?.message || 'تعذر رفع الصورة');
     } finally {
-      e.target.value = '';
+      setUploadingNewImage(false);
     }
   };
 
   const handleEditImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = '';
+    setUploadingEditImage(true);
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setEditValues((p) => ({ ...p, image_url: dataUrl }));
-    } catch {
-      toast.error('تعذر رفع الصورة');
+      const url = await uploadImageToStorage(file, 'categories');
+      setEditValues((p) => ({ ...p, image_url: url }));
+    } catch (err: any) {
+      toast.error(err?.message || 'تعذر رفع الصورة');
     } finally {
-      e.target.value = '';
+      setUploadingEditImage(false);
     }
   };
 
@@ -206,9 +203,12 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                   </button>
                 </div>
               ) : (
-                <label className="w-20 h-20 shrink-0 rounded-sm border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-accent/50 transition-colors">
-                  <Upload className="w-5 h-5 text-muted-foreground" strokeWidth={1.5} />
-                  <input type="file" accept="image/*" onChange={handleNewImage} className="hidden" />
+                <label className={cn(
+                  "w-20 h-20 shrink-0 rounded-sm border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-accent/50 transition-colors",
+                  uploadingNewImage && "opacity-60 pointer-events-none"
+                )}>
+                  {uploadingNewImage ? <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" /> : <Upload className="w-5 h-5 text-muted-foreground" strokeWidth={1.5} />}
+                  <input type="file" accept="image/*" onChange={handleNewImage} disabled={uploadingNewImage} className="hidden" />
                 </label>
               )}
               <p className="font-arabic text-xs text-muted-foreground">ارفعي صورة من جهازك، هتظهر في صفحة "تسوقي حسب الفئة" بالرئيسية</p>
@@ -255,9 +255,12 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                         </button>
                       </div>
                     ) : (
-                      <label className="w-16 h-16 shrink-0 rounded-sm border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent/50 transition-colors">
-                        <Upload className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
-                        <input type="file" accept="image/*" onChange={handleEditImage} className="hidden" />
+                      <label className={cn(
+                        "w-16 h-16 shrink-0 rounded-sm border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent/50 transition-colors",
+                        uploadingEditImage && "opacity-60 pointer-events-none"
+                      )}>
+                        {uploadingEditImage ? <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" /> : <Upload className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />}
+                        <input type="file" accept="image/*" onChange={handleEditImage} disabled={uploadingEditImage} className="hidden" />
                       </label>
                     )}
                     <div className="flex-1 space-y-1.5">
