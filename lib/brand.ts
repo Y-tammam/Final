@@ -23,6 +23,12 @@ export const BRAND_CONFIG = {
   },
   adminEmail: "ttghnghylla@gmail.com",
   freeShippingThreshold: 3000,
+  // بيانات التحويل بفودافون كاش اللي بتظهر للعميلة بعد تأكيد الطلب لو
+  // اختارت الدفع بفودافون كاش. غيّري الرقم والاسم دول برقمك الحقيقي.
+  vodafoneCash: {
+    number: "01000000000",
+    holderName: "اسم صاحب الرقم",
+  },
 } as const;
 
 export const EGYPT_GOVERNORATES = [
@@ -51,6 +57,11 @@ export const PAYMENT_METHODS = {
   "Vodafone Cash": "فودافون كاش",
   Card: "بطاقة بنكية",
 } as const;
+
+// طرق الدفع المتوقفة مؤقتاً - تظهر للعميلة لكن مش قابلة للاختيار (لحد ما
+// تتشال من هنا). دلوقتي الدفع بالبطاقة موقوف مؤقتاً بناءً على طلبك.
+// لإعادة تفعيل البطاقة تاني: احذفي "Card" من المصفوفة دي بس.
+export const DISABLED_PAYMENT_METHODS: (keyof typeof PAYMENT_METHODS)[] = ["Card"];
 
 export const TURKISH_SIZE_GUIDE = [
   { turkish: "38", eu: "XS", chest: "84", waist: "64", hips: "90" },
