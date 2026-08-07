@@ -3,6 +3,7 @@ export type Category = {
   name_ar: string;
   name_en: string;
   slug: string;
+  image_url: string | null;
   created_at: string;
 };
 
@@ -48,6 +49,7 @@ export type Order = {
   shipping_fee_egp: number;
   total_amount_egp: number;
   payment_method: string;
+  payment_receipt_url: string | null;
   order_status: string;
   allow_inspection: boolean;
   notes: string | null;
