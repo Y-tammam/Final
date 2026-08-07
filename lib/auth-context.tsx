@@ -10,6 +10,12 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  // بتتأكد من كود التفعيل (6 أرقام) اللي بيوصل بالإيميل بعد إنشاء الحساب.
+  // ملحوظة مهمة: لازم تغيّري إعدادات الإيميل في Supabase Dashboard عشان
+  // الرسالة تبعت كود بدل رابط - شوفي التعليق فوق الدالة دي.
+  verifySignupCode: (email: string, code: string) => Promise<{ error: string | null }>;
+  // بتعيد إرسال كود التفعيل تاني (لو العميلة مستلمتش الإيميل أو الكود انتهى).
+  resendSignupCode: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   // تحديث بيانات محدودة بس (الاسم، الموبايل، عنوان الشحن الافتراضي) - مش
   // الإيميل أو الباسورد. البيانات دي بتتحفظ في user_metadata وبتتستخدم
@@ -71,6 +77,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   };
 
+  /*
+   * التحقق من الإيميل بكود بدل رابط
+   * ==================================
+   * Supabase بيبعت افتراضياً رابط تفعيل (Confirmation Link) بعد signUp،
+   * مش كود. عشان يبعت كود 6 أرقام (Token) بدل الرابط، لازم تعدّلي قالب
+   * الإيميل من Supabase Dashboard مرة واحدة بس:
+   *   Authentication -> Email Templates -> Confirm signup
+   *   امسحي {{ .ConfirmationURL }} من جوه الرابط <a href="...">
+   *   وحطي بدالها {{ .Token }} في مكانه في نص الرسالة (يعني يبقى النص
+   *   شكله مثلاً: "كود التفعيل بتاعك هو: {{ .Token }}").
+   * بعد التعديل ده، signUp هيبعت كود، والدالة verifySignupCode تحت
+   * هي اللي بتتأكد منه (type: 'signup').
+   */
+  const verifySignupCode = async (email: string, code: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
+    return { error: error?.message ?? null };
+  };
+
+  const resendSignupCode = async (email: string) => {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    return { error: error?.message ?? null };
+  };
+
+  /*
+   * التحقق عبر واتساب (لاحقاً)
+   * ============================
+   * Supabase مش بيبعت أكواد واتساب مباشرة - محتاجة تفعّلي مزوّد SMS/WhatsApp
+   * (زي Twilio Verify) من Authentication -> Providers -> Phone في
+   * Supabase Dashboard، وتختاري قناة الإرسال "whatsapp" بدل "sms" لو
+   * المزوّد بيدعمها. بعدين التحقق بيبقى بنفس فكرة الإيميل بالظبط:
+   *
+   *   await supabase.auth.signInWithOtp({ phone, options: { channel: 'whatsapp' } });
+   *   await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
+   *
+   * لما تجهزي حساب Twilio (أو أي مزوّد تاني)، قوليلي وهضيف الخطوتين دول
+   * فعلياً في الكود (شاشة اختيار "تحقق بالإيميل / تحقق بالواتساب" في
+   * AuthModal) - دلوقتي التحقق شغال بالإيميل بس.
+   */
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -90,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ session, user, loading, signIn, signUp, verifySignupCode, resendSignupCode, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
