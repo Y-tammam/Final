@@ -239,6 +239,20 @@ function OrderDrawer({
               <CreditCard className="w-4 h-4 text-accent mt-0.5 shrink-0" strokeWidth={1.5} />
               <p className="font-arabic text-sm">{PAYMENT_METHODS[order.payment_method as keyof typeof PAYMENT_METHODS] ?? order.payment_method}</p>
             </div>
+            {order.payment_method === 'Vodafone Cash' && (
+              <div className="pt-1">
+                <p className="font-arabic text-xs text-muted-foreground mb-2">إيصال التحويل:</p>
+                {order.payment_receipt_url ? (
+                  <a href={order.payment_receipt_url} target="_blank" rel="noopener noreferrer" className="block w-28">
+                    <img src={order.payment_receipt_url} alt="إيصال التحويل" className="w-28 rounded-sm border border-border object-cover" />
+                  </a>
+                ) : (
+                  <p className="font-arabic text-xs text-warning bg-warning/10 rounded-sm px-2.5 py-1.5 inline-block">
+                    لسه معلاش صورة إيصال
+                  </p>
+                )}
+              </div>
+            )}
             {order.allow_inspection && (
               <div className="flex items-center gap-2 bg-accent/10 text-accent rounded-sm px-3 py-2">
                 <Eye className="w-4 h-4 shrink-0" strokeWidth={1.5} />

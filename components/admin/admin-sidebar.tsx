@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { BrandLogo } from '@/components/ui/brand-logo';
-import { LayoutDashboard, Package, ShoppingCart, Truck, LogOut, Store, X } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Truck, LogOut, Store, X, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
 const NAV = [
   { href: '/admin/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
   { href: '/admin/products', label: 'المنتجات', icon: Package },
+  { href: '/admin/categories', label: 'الفئات', icon: Layers },
   { href: '/admin/orders', label: 'الطلبات', icon: ShoppingCart },
   { href: '/admin/shipping', label: 'الشحن', icon: Truck },
 ];
