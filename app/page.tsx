@@ -5,25 +5,27 @@ import { NewArrivals } from '@/components/store/new-arrivals';
 import { TrendingGrid } from '@/components/store/trending-grid';
 import { CategoryShowcase } from '@/components/store/category-showcase';
 import { AboutSection } from '@/components/store/about-section';
-import { getFeaturedProducts, getCategories, getAllProducts, getNewArrivals } from '@/lib/data';
+import { getFeaturedProducts, getCategories, getCategoryCounts, getNewArrivals } from '@/lib/data';
 
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const [featured, categories, allProducts, newArrivals] = await Promise.all([
+  const [featured, categories, categoryCounts, newArrivals] = await Promise.all([
     getFeaturedProducts(),
     getCategories(),
-    getAllProducts(),
+    getCategoryCounts(),
     getNewArrivals(5),
   ]);
 
   return (
     <StorefrontLayout>
-      <Hero />
+      {/* الهيرو بياخد المنتجات المميزة من السيرفر مباشرة بدل ما يجيبها من
+          المتصفح بعد تحميل الجافاسكربت - ده كان أكبر سبب لتأخير LCP. */}
+      <Hero products={featured.slice(0, 5)} />
       <ValueProps />
       <NewArrivals products={newArrivals} />
       <TrendingGrid products={featured} />
-      <CategoryShowcase categories={categories} products={allProducts} />
+      <CategoryShowcase categories={categories} counts={categoryCounts} />
       <AboutSection />
     </StorefrontLayout>
   );

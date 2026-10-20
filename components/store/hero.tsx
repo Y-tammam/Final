@@ -5,34 +5,14 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BRAND_CONFIG } from '@/lib/brand';
-import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/types';
 
-export function Hero() {
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+// المنتجات المميزة بتيجي من السيرفر (app/page.tsx) جاهزة مع الـ HTML.
+// قبل كده الهيرو كان بيجيبها من المتصفح بعد تحميل الجافاسكربت، فأكبر صورة
+// في الصفحة (LCP) كانت بتستنى JS + طلب لقاعدة البيانات قبل ما تبدأ تتحمل.
+export function Hero({ products: featuredProducts }: { products: Product[] }) {
   const [active, setActive] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  // جلب المنتجات التي تحتوي على is_featured = true
-  useEffect(() => {
-    async function fetchFeatured() {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_featured', true)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (!error && data && data.length > 0) {
-        setFeaturedProducts(data as Product[]);
-      }
-      setLoading(false);
-    }
-
-    fetchFeatured();
-  }, []);
 
   // التبديل التلقائي بين السلايدات
   useEffect(() => {
@@ -46,10 +26,6 @@ export function Hero() {
   const goTo = (i: number) => setActive(i);
   const next = () => setActive((prev) => (prev + 1) % featuredProducts.length);
   const prev = () => setActive((p) => (p - 1 + featuredProducts.length) % featuredProducts.length);
-
-  if (loading) {
-    return <div className="h-[85vh] min-h-[560px] bg-foreground animate-pulse" />;
-  }
 
   // إذا لم يكن هناك منتجات مميزة، لا يعرض شيئاً أو يمكنك إضافة خيار افتراضي
   if (featuredProducts.length === 0) return null;
@@ -66,12 +42,14 @@ export function Hero() {
               i === active ? 'opacity-100' : 'opacity-0 pointer-events-none'
             )}
           >
+            {/* أول صورة بس priority (preload)، والباقي بيتحمل lazy لحد ما يظهر */}
             <Image
               src={imageUrl}
               alt={product.title_ar}
               fill
               priority={i === 0}
               sizes="100vw"
+              quality={70}
               className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/30 to-foreground/20" />

@@ -20,6 +20,9 @@ export function BrandLogo({ className, textClassName }: { className?: string; te
     <img
       src={BRAND_CONFIG.logoUrl}
       alt={BRAND_CONFIG.nameArabic}
+      width={256}
+      height={256}
+      decoding="async"
       className={cn('object-contain', className)}
       onError={() => setFailed(true)}
     />

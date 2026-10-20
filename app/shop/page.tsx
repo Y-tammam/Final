@@ -1,16 +1,11 @@
 import { StorefrontLayout } from '@/components/store/storefront-layout';
-import { ShopContent } from '@/components/store/shop-content';
+import { ShopContentWithUrlFilter } from '@/components/store/shop-content';
 import { getAllProducts, getCategories } from '@/lib/data';
 
 export const revalidate = 60;
 
-export default async function ShopPage({
-  searchParams,
-}: {
-  searchParams: { category?: string };
-}) {
+export default async function ShopPage() {
   const [products, categories] = await Promise.all([getAllProducts(), getCategories()]);
-  const activeCategory = searchParams.category;
 
   return (
     <StorefrontLayout>
@@ -21,7 +16,7 @@ export default async function ShopPage({
           <p className="font-arabic text-muted-foreground mt-3">اكتشفي تشكيلتنا الكاملة من الأزياء التركية الفاخرة</p>
         </div>
       </div>
-      <ShopContent products={products} categories={categories} activeCategory={activeCategory} />
+      <ShopContentWithUrlFilter products={products} categories={categories} />
     </StorefrontLayout>
   );
 }

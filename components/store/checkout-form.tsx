@@ -99,40 +99,29 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
 
     setLoading(true);
     try {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user?.id ?? null,
-          customer_name: form.customer_name.trim(),
-          customer_phone: form.customer_phone.trim(),
-          whatsapp_phone: form.whatsapp_phone.trim() || null,
-          governorate: form.governorate,
-          city_address: form.city_address.trim(),
-          subtotal_egp: subtotal,
-          shipping_fee_egp: shippingFee,
-          total_amount_egp: total,
-          payment_method: form.payment_method,
-          order_status: 'pending',
-          allow_inspection: form.allow_inspection,
-          notes: form.notes.trim() || null,
+      // الطلب بيتسجل من خلال دالة place_order في قاعدة البيانات: بنبعت
+      // المنتجات والكميات بس، والأسعار والشحن والإجمالي بيتحسبوا على السيرفر
+      // من الأسعار الحقيقية (مش من المتصفح) - شوفي
+      // supabase/migrations/20261020000000_secure_checkout_rpc.sql
+      const { data: placed, error: orderError } = await supabase
+        .rpc('place_order', {
+          p_customer_name: form.customer_name.trim(),
+          p_customer_phone: form.customer_phone.trim(),
+          p_whatsapp_phone: form.whatsapp_phone.trim() || null,
+          p_governorate: form.governorate,
+          p_city_address: form.city_address.trim(),
+          p_notes: form.notes.trim() || null,
+          p_payment_method: form.payment_method,
+          p_allow_inspection: form.allow_inspection,
+          p_items: items.map((item) => ({ variant_id: item.variant.id, quantity: item.quantity })),
         })
-        .select()
-        .single();
+        .single<{ order_id: string; order_number: number; total_amount_egp: number }>();
 
-      if (orderError || !order) {
+      if (orderError || !placed) {
         throw new Error(orderError?.message ?? 'تعذر إنشاء الطلب');
       }
-
-      const orderItems = items.map((item) => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        variant_id: item.variant.id,
-        quantity: item.quantity,
-        unit_price_egp: item.product.sale_price_egp ?? item.product.price_egp,
-      }));
-
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) throw itemsError;
+      const order = { id: placed.order_id, order_number: placed.order_number };
+      const orderTotal = Number(placed.total_amount_egp);
 
       // لو العميلة مسجلة دخول واختارت تحفظ بياناتها، بنحدّث الحساب
       // ببيانات الشحن دي عشان تتملى تلقائي في الطلب الجاي.
@@ -152,10 +141,10 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
       clearCart();
 
       if (form.payment_method === 'Vodafone Cash') {
-        setPendingOrder({ id: order.id, orderNumber: order.order_number, total });
+        setPendingOrder({ id: order.id, orderNumber: order.order_number, total: orderTotal });
         setStep('vodafone-receipt');
       } else {
-        setSuccess({ orderNumber: order.order_number, total });
+        setSuccess({ orderNumber: order.order_number, total: orderTotal });
         setStep('success');
       }
     } catch (err) {
@@ -186,10 +175,10 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
       return;
     }
     setUploadingReceipt(true);
-    const { error } = await supabase
-      .from('orders')
-      .update({ payment_receipt_url: receiptPreview })
-      .eq('id', pendingOrder.id);
+    const { error } = await supabase.rpc('attach_order_receipt', {
+      p_order_id: pendingOrder.id,
+      p_receipt: receiptPreview,
+    });
     setUploadingReceipt(false);
     if (error) {
       toast.error('تعذر رفع الإيصال، جرّبي تاني أو ابعتيه عبر واتساب');
