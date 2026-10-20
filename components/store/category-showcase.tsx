@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Category, Product } from '@/lib/types';
+import type { Category } from '@/lib/types';
 import { ChevronLeft } from 'lucide-react';
 
 const CATEGORY_IMAGES: Record<string, string> = {
@@ -9,9 +9,7 @@ const CATEGORY_IMAGES: Record<string, string> = {
   casual: "https://images.pexels.com/photos/18885255/pexels-photo-18885255.jpeg?auto=compress&cs=tinysrgb&w=900",
 };
 
-export function CategoryShowcase({ categories, products }: { categories: Category[]; products: Product[] }) {
-  const countFor = (slug: string) => products.filter((p) => p.category?.slug === slug).length;
-
+export function CategoryShowcase({ categories, counts }: { categories: Category[]; counts: Record<string, number> }) {
   return (
     <section className="bg-secondary/50 py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -43,7 +41,7 @@ export function CategoryShowcase({ categories, products }: { categories: Categor
                   {cat.name_ar}
                 </h3>
                 <p className="font-arabic text-primary-foreground/70 text-sm mb-4">
-                  {countFor(cat.slug)} منتج
+                  {counts[cat.id] ?? 0} منتج
                 </p>
                 <span className="inline-flex items-center gap-2 font-arabic text-sm text-accent group-hover:gap-3 transition-all">
                   تسوقي الآن

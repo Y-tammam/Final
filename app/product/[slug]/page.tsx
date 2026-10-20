@@ -1,26 +1,41 @@
 import { StorefrontLayout } from '@/components/store/storefront-layout';
 import { ProductDetail } from '@/components/store/product-detail';
-import { getProductBySlug, getAllProducts } from '@/lib/data';
+import { getProductBySlug, getRelatedProducts } from '@/lib/data';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
-// سبب رسالة خطأ 500: الصفحة كانت فيها تعارض "static vs dynamic" في Next.js.
-// كانت مضبوطة كـ ISR (revalidate = 60) مع generateStaticParams فاضية، يعني
-// نكست بيحاول يولّد الصفحة بشكل ثابت (static) وقت الطلب، لكن جوه الصفحة
-// بنستخدم supabaseServer() اللي بيقرا الكوكيز (cookies) عشان صلاحيات الأدمن
-// - وقراءة الكوكيز دي بتجبر الصفحة تبقى ديناميكية. التعارض ده بين "المفروض
-// تبقى ثابتة" و"لازم تبقى ديناميكية" هو اللي كان بيرمي Internal Server Error
-// على أي صفحة منتج. الحل: نخلي الصفحة ديناميكية بشكل صريح ونشيل الإعدادات
-// المتعارضة معاها.
-export const dynamic = 'force-dynamic';
+// كانت الصفحة force-dynamic لأن supabaseServer() بيقرا الكوكيز (وده كان سبب
+// خطأ 500 مع ISR). دلوقتي بيانات المتجر بتيجي من عميل عام من غير كوكيز
+// (lib/supabase-public.ts)، فرجعنا ISR: أول زيارة لأي منتج بتبني الصفحة،
+// وبعدها بتتقدم من الكاش وبتتحدث في الخلفية كل دقيقة.
+export const revalidate = 60;
+
+export function generateStaticParams() {
+  return [];
+}
+
+// عنوان وصورة خاصين بكل منتج: بيظهروا في نتايج جوجل وفي معاينة الرابط لما
+// يتشارك على واتساب/فيسبوك أو يتحط في إعلان.
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const product = await getProductBySlug(params.slug);
+  if (!product) return {};
+  const description = product.description_ar?.slice(0, 160) || undefined;
+  return {
+    title: product.title_ar,
+    description,
+    openGraph: {
+      title: product.title_ar,
+      description,
+      images: product.images?.[0] ? [product.images[0]] : undefined,
+    },
+  };
+}
 
 export default async function ProductPage({ params }: { params: { slug: string } }) {
   const product = await getProductBySlug(params.slug);
   if (!product) notFound();
 
-  const allProducts = await getAllProducts();
-  const related = allProducts
-    .filter((p) => p.id !== product.id && p.category?.slug === product.category?.slug)
-    .slice(0, 4);
+  const related = await getRelatedProducts(product, 4);
 
   return (
     <StorefrontLayout>

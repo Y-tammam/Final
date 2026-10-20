@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { Suspense, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ProductCard } from '@/components/store/product-card';
 import type { Product, Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -92,5 +93,20 @@ export function ShopContent({
         </div>
       )}
     </div>
+  );
+}
+
+// الصفحة نفسها بقت ثابتة (بتتكاش) عشان مبتقراش searchParams على السيرفر.
+// الفئة المختارة من الرابط (?category=...) بتتقري هنا في المتصفح.
+function ShopContentFromUrl(props: { products: Product[]; categories: Category[] }) {
+  const category = useSearchParams().get('category') ?? undefined;
+  return <ShopContent key={category ?? 'all'} {...props} activeCategory={category} />;
+}
+
+export function ShopContentWithUrlFilter(props: { products: Product[]; categories: Category[] }) {
+  return (
+    <Suspense fallback={<ShopContent {...props} />}>
+      <ShopContentFromUrl {...props} />
+    </Suspense>
   );
 }
