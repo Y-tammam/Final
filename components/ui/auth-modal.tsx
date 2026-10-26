@@ -129,7 +129,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <button
                 type="submit"
                 disabled={verifying || code.length < 6}
-                className="w-full bg-foreground text-primary-foreground font-arabic py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60"
+                className="w-full bg-foreground text-primary-foreground font-arabic py-2.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60"
               >
                 {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 تأكيد الكود
@@ -208,7 +208,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-foreground text-primary-foreground font-arabic py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 text-sm mt-2 disabled:opacity-60"
+                className="w-full bg-foreground text-primary-foreground font-arabic py-2.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-2 text-sm mt-2 disabled:opacity-60"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'login' ? 'تسجيل الدخول' : 'إنشاء الحساب'}
               </button>

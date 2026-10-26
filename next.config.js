@@ -23,8 +23,24 @@ const nextConfig = {
     minimumCacheTTL: 86400,
   },
   poweredByHeader: false,
+  // بيستورد الأيقونات/الدوال اللي بنستخدمها بس بدل المكتبة كلها
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'date-fns'],
+  },
   // هيدرز أمان لكل الصفحات: بتمنع تضمين الموقع في iframe على موقع تاني
   // (clickjacking)، وبتجبر HTTPS، وبتمنع المتصفح من تخمين نوع الملفات.
+  // الروابط القديمة للفئات (/shop?category=x) بتتحول للصفحة الجديدة (/shop/x)
+  // عشان أي رابط اتشارك أو إعلان قديم يفضل شغال
+  async redirects() {
+    return [
+      {
+        source: '/shop',
+        has: [{ type: 'query', key: 'category', value: '(?<cat>[^&]+)' }],
+        destination: '/shop/:cat',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

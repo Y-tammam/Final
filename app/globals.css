@@ -4,21 +4,27 @@
 
 @layer base {
   :root {
-    /* Luxury palette - Soft Alabaster / Bronze Charcoal / Champagne Gold */
-    --background: 36 33% 97%;          /* #FAF8F5 warm cream */
-    --foreground: 0 0% 10%;            /* deep charcoal */
+    /* Luxury palette - Ivory / Near-black / Muted bronze
+       الذهبي بقى أهدى وأغمق (برونز) عشان يبان كنص على الخلفية الفاتحة،
+       والزراير السودا نصها عاجي بدل الذهبي - ده الأسلوب المعتاد في مواقع
+       الأزياء الفاخرة (أسود + عاجي + لمسة معدنية خفيفة). */
+    --background: 36 33% 97%;          /* #FAF8F5 warm ivory */
+    --foreground: 0 0% 9%;             /* near-black */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
-    --primary: 0 0% 10%;               /* bronze charcoal #1A1A1A */
-    --primary-foreground: 43 74% 66%;  /* champagne gold text on dark */
+    --primary: 0 0% 9%;
+    --primary-foreground: 36 33% 97%;  /* ivory text on black */
     --secondary: 36 25% 92%;
     --secondary-foreground: 0 0% 10%;
     --muted: 36 20% 93%;
     --muted-foreground: 0 0% 40%;
-    --accent: 43 74% 66%;              /* champagne gold #D4AF37 */
-    --accent-foreground: 0 0% 10%;
+    --accent: 36 38% 46%;              /* muted bronze #A27F4B */
+    --accent-foreground: 36 33% 97%;
+    /* نسخة أغمق من البرونز للنصوص على الخلفية الفاتحة (تباين ≥ 4.5:1) -
+       الـ accent العادي يفضل للخطوط والتعبئة وشريط التقدم بس */
+    --accent-text: 36 41% 38%;
     --destructive: 354 56% 48%;        /* muted crimson */
     --destructive-foreground: 0 0% 98%;
     --success: 142 52% 38%;
@@ -27,13 +33,13 @@
     --warning-foreground: 0 0% 10%;
     --border: 36 18% 86%;
     --input: 36 18% 86%;
-    --ring: 43 74% 66%;
-    --chart-1: 43 74% 66%;             /* gold */
+    --ring: 36 38% 46%;
+    --chart-1: 36 38% 46%;             /* bronze */
     --chart-2: 354 56% 48%;            /* crimson */
     --chart-3: 0 0% 30%;               /* charcoal */
     --chart-4: 200 30% 50%;            /* muted blue */
     --chart-5: 142 40% 55%;            /* sage */
-    --radius: 0.25rem;
+    --radius: 0px;                     /* زوايا حادة - أفخم من الزوايا الدائرية */
   }
   .dark {
     --background: 0 0% 7%;
@@ -50,6 +56,7 @@
     --muted-foreground: 0 0% 65%;
     --accent: 43 74% 66%;
     --accent-foreground: 0 0% 10%;
+    --accent-text: 43 74% 66%;
     --destructive: 354 56% 58%;
     --destructive-foreground: 0 0% 98%;
     --success: 142 52% 48%;
@@ -66,21 +73,31 @@
   * {
     @apply border-border;
   }
+  html {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* النص العربي: 16px وسطر مريح 1.75 - العربي محتاج مسافة رأسية أكبر من اللاتيني */
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "cv01";
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--foreground));
+    outline-offset: 2px;
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: var(--font-playfair), Georgia, serif;
+    font-family: var(--font-playfair), var(--font-messiri), Georgia, serif;
   }
   .font-body {
-    font-family: var(--font-jakarta), var(--font-cairo), system-ui, sans-serif;
+    font-family: var(--font-cairo), system-ui, sans-serif;
   }
   .font-arabic {
-    font-family: var(--font-cairo), var(--font-readex), system-ui, sans-serif;
+    font-family: var(--font-cairo), system-ui, sans-serif;
   }
   .text-balance {
     text-wrap: balance;
@@ -134,6 +151,41 @@
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
+}
+
+/* الحروف العربية بتتوصل ببعض - أي letter-spacing بيقطّع الوصلات ويبوّظ شكل
+   الكلمة. القاعدة دي بعد كل الـ utilities عشان تغلب أي tracking-* على نص عربي.
+   النصوص اللاتينية (font-body) مش متأثرة. */
+.font-arabic,
+:lang(ar) .font-arabic,
+.font-display:lang(ar) {
+  letter-spacing: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .fade-in,
+  .scale-in,
+  .shimmer {
+    animation: none !important;
+  }
+  .hover-zoom:hover img {
+    transform: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* صفحة المنتج فيها شريط ثابت تحت على الموبايل - بنزوّد مسافة تحت الفوتر
+   عشان الشريط مايغطيش آخر سطر فيه */
+@media (max-width: 639px) {
+  body:has([data-sticky-bar]) footer {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 76px);
+  }
 }
 
 /* RTL friendly number rendering */

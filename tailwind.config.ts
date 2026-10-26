@@ -10,9 +10,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['var(--font-playfair)', 'Georgia', 'serif'],
-        body: ['var(--font-jakarta)', 'var(--font-cairo)', 'system-ui', 'sans-serif'],
-        arabic: ['var(--font-cairo)', 'var(--font-readex)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-playfair)', 'var(--font-messiri)', 'Georgia', 'serif'],
+        body: ['var(--font-cairo)', 'system-ui', 'sans-serif'],
+        arabic: ['var(--font-cairo)', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -21,8 +21,8 @@ const config: Config = {
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'max(0px, calc(var(--radius) - 2px))',
+        sm: 'max(0px, calc(var(--radius) - 4px))',
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -33,6 +33,7 @@ const config: Config = {
         secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
         muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
         accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+        'accent-text': 'hsl(var(--accent-text))',
         destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
         success: { DEFAULT: 'hsl(var(--success))', foreground: 'hsl(var(--success-foreground))' },
         warning: { DEFAULT: 'hsl(var(--warning))', foreground: 'hsl(var(--warning-foreground))' },
@@ -56,6 +57,16 @@ const config: Config = {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         shimmer: 'shimmer 1.5s linear infinite',
+      },
+      // Tailwind 3.3 مفيهوش الخطوات دي (اتضافت في 3.4) - من غيرها كلاس زي
+      // text-background/65 مبيتولدش خالص والنص بيرجع لونه الافتراضي
+      opacity: {
+        '15': '0.15',
+        '35': '0.35',
+        '45': '0.45',
+        '55': '0.55',
+        '65': '0.65',
+        '85': '0.85',
       },
       transitionTimingFunction: {
         luxury: 'cubic-bezier(0.16, 1, 0.3, 1)',

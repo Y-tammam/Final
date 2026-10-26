@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from 'react';
-import { Search, MessageCircle, Printer, X, Phone, MapPin, Clock, CreditCard, Package, Eye } from 'lucide-react';
-import type { Order } from '@/lib/types';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, MessageCircle, Printer, X, Phone, MapPin, Clock, CreditCard, Package, Eye, Ban, Megaphone } from 'lucide-react';
+import type { Order, OrderItem } from '@/lib/types';
 import { priceEGP, formatDateTimeArabic, timeAgoArabic } from '@/lib/format';
 import { ORDER_STATUS, PAYMENT_METHODS, BRAND_CONFIG } from '@/lib/brand';
 import { supabase } from '@/lib/supabase';
@@ -178,9 +178,55 @@ function OrderDrawer({
   onStatusChange: (id: string, status: string) => void;
   badgeCls: (s: string) => string;
 }) {
+  // صورة الإيصال مش بتتحمل مع قايمة الطلبات (ممكن تكون كبيرة)، بتتجاب لما
+  // الطلب يتفتح بس.
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  useEffect(() => {
+    setReceipt(null);
+    if (order.payment_method !== 'Vodafone Cash') return;
+    let active = true;
+    setReceiptLoading(true);
+    supabase
+      .from('orders')
+      .select('payment_receipt_url')
+      .eq('id', order.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        setReceipt(data?.payment_receipt_url ?? null);
+        setReceiptLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [order.id, order.payment_method]);
+
+  // حظر الرقم (للمالك بس - RLS): 'prepaid' = يطلب بفودافون كاش بس، 'block' = ممنوع
+  const blockPhone = async (mode: 'prepaid' | 'block') => {
+    const label = mode === 'block' ? 'منع الرقم ده من الطلب نهائياً' : 'السماح للرقم ده بالدفع المسبق (فودافون كاش) بس';
+    if (!confirm(`${label}؟\n${order.customer_phone}`)) return;
+    const { error } = await supabase
+      .from('blocked_phones')
+      .upsert({ phone: order.customer_phone, mode, reason: `طلب #${order.order_number}` });
+    if (error) {
+      toast.error('الإجراء ده للمالك بس');
+      return;
+    }
+    toast.success('تم');
+  };
+
   const phone = order.whatsapp_phone || order.customer_phone;
   const waNumber = phone.replace(/[^0-9]/g, '');
-  const waMessage = `مرحباً ${order.customer_name}،\nبخصوص طلبك رقم #${order.order_number} من ${BRAND_CONFIG.nameArabic}.\nالحالة الحالية: ${ORDER_STATUS[order.order_status as keyof typeof ORDER_STATUS]?.label}`;
+  // الطلب لسه pending: رسالة تأكيد فيها المنتجات والإجمالي والعنوان. تأكيد
+  // طلبات الدفع عند الاستلام قبل الشحن بيقلل الرفض عند الباب جداً.
+  const itemsText = (order.order_items ?? [])
+    .map((i) => `• ${itemTitle(i)}${itemVariant(i) ? ` (${itemVariant(i)})` : ''} × ${i.quantity}`)
+    .join('\n');
+  const waMessage =
+    order.order_status === 'pending'
+      ? `مرحباً ${order.customer_name} 🤍\nمعاكي ${BRAND_CONFIG.nameArabic} - بنأكد طلبك رقم #${order.order_number}:\n${itemsText}\nالإجمالي: ${priceEGP(order.total_amount_egp)} ج.م\nالعنوان: ${order.governorate} - ${order.city_address}\n\nمن فضلك ردي بـ "تأكيد" عشان نجهز الشحنة، أو قوليلنا لو محتاجة تعدلي حاجة.`
+      : `مرحباً ${order.customer_name}،\nبخصوص طلبك رقم #${order.order_number} من ${BRAND_CONFIG.nameArabic}.\nالحالة الحالية: ${ORDER_STATUS[order.order_status as keyof typeof ORDER_STATUS]?.label}`;
   const waLink = `https://wa.me/${waNumber.startsWith('20') ? waNumber : '2' + waNumber.replace(/^0/, '')}?text=${encodeURIComponent(waMessage)}`;
 
   return (
@@ -242,10 +288,11 @@ function OrderDrawer({
             {order.payment_method === 'Vodafone Cash' && (
               <div className="pt-1">
                 <p className="font-arabic text-xs text-muted-foreground mb-2">إيصال التحويل:</p>
-                {order.payment_receipt_url ? (
-                  <a href={order.payment_receipt_url} target="_blank" rel="noopener noreferrer" className="block w-28">
-                    <img src={order.payment_receipt_url} alt="إيصال التحويل" className="w-28 rounded-sm border border-border object-cover" />
-                  </a>
+                {receiptLoading ? (
+                  <p className="font-arabic text-xs text-muted-foreground">جاري تحميل الإيصال...</p>
+                ) : receipt ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={receipt} alt="إيصال التحويل" className="w-full max-w-xs rounded-sm border border-border object-contain" />
                 ) : (
                   <p className="font-arabic text-xs text-warning bg-warning/10 rounded-sm px-2.5 py-1.5 inline-block">
                     لسه معلاش صورة إيصال
@@ -259,6 +306,22 @@ function OrderDrawer({
                 <span className="font-arabic text-xs">العميل طلب المعاينة قبل الدفع</span>
               </div>
             )}
+            {order.attribution && (order.attribution.utm_source || order.attribution.utm_campaign) && (
+              <div className="flex items-center gap-2 text-xs font-arabic text-muted-foreground">
+                <Megaphone className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+                المصدر: {[order.attribution.utm_source, order.attribution.utm_campaign, order.attribution.utm_content].filter(Boolean).join(' / ')}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => blockPhone('prepaid')} className="font-arabic text-[11px] border border-border px-2.5 py-1.5 rounded-sm hover:border-foreground/40 flex items-center gap-1">
+                <Ban className="w-3.5 h-3.5" strokeWidth={1.5} />
+                دفع مسبق بس للرقم ده
+              </button>
+              <button onClick={() => blockPhone('block')} className="font-arabic text-[11px] border border-destructive/40 text-destructive px-2.5 py-1.5 rounded-sm hover:bg-destructive/5 flex items-center gap-1">
+                <Ban className="w-3.5 h-3.5" strokeWidth={1.5} />
+                حظر الرقم
+              </button>
+            </div>
             {order.notes && (
               <div className="bg-background rounded-sm p-3 border border-border">
                 <p className="font-arabic text-xs text-muted-foreground mb-1">ملاحظات:</p>
@@ -274,9 +337,9 @@ function OrderDrawer({
               {order.order_items?.map((item) => (
                 <li key={item.id} className="flex items-start gap-3 text-sm">
                   <div className="flex-1 min-w-0">
-                    <p className="font-arabic text-foreground truncate">{item.product?.title_ar ?? 'منتج'}</p>
+                    <p className="font-arabic text-foreground truncate">{itemTitle(item)}</p>
                     <p className="font-arabic text-xs text-muted-foreground">
-                      {item.variant?.color_ar ?? ''} {item.variant && `• مقاس ${item.variant.size}`} • ×{item.quantity}
+                      {itemVariant(item)} • ×{item.quantity}
                     </p>
                   </div>
                   <span className="font-body num-rtl font-medium shrink-0">{priceEGP(item.unit_price_egp * item.quantity)}</span>
@@ -295,6 +358,14 @@ function OrderDrawer({
               <span className="font-arabic text-sm text-muted-foreground">الشحن</span>
               <span className="font-body text-sm num-rtl">{priceEGP(order.shipping_fee_egp)}</span>
             </div>
+            {order.discount_code && Number(order.discount_egp) > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="font-arabic text-sm text-muted-foreground">
+                  خصم <span className="font-body tracking-wider" dir="ltr">{order.discount_code}</span>
+                </span>
+                <span className="font-body text-sm num-rtl text-success">-{priceEGP(order.discount_egp)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <span className="font-arabic text-base font-semibold">الإجمالي</span>
               <span className="font-body text-lg font-semibold num-rtl">{priceEGP(order.total_amount_egp)} ج.م</span>
@@ -311,11 +382,11 @@ function OrderDrawer({
             className="flex-1 bg-success/10 text-success font-arabic py-3 rounded-sm hover:bg-success/20 transition-all flex items-center justify-center gap-2 text-sm"
           >
             <MessageCircle className="w-5 h-5" strokeWidth={1.5} />
-            مراسلة واتساب
+            {order.order_status === 'pending' ? 'تأكيد على واتساب' : 'مراسلة واتساب'}
           </a>
           <button
             onClick={() => printReceipt(order)}
-            className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 text-sm"
+            className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-2 text-sm"
           >
             <Printer className="w-5 h-5" strokeWidth={1.5} />
             طباعة الإيصال
@@ -326,13 +397,36 @@ function OrderDrawer({
   );
 }
 
+// أي نص جاي من العميلة (الاسم، العنوان...) لازم يتعمله escape قبل ما يتحط
+// جوه HTML. من غيرها عميلة تقدر تكتب سكريبت في اسمها وهيشتغل جوه جلسة الأدمن
+// أول ما يدوس "طباعة" (Stored XSS) ويسرق صلاحياته.
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// اسم المنتج والمقاس واللون: النسخة المحفوظة وقت الطلب أولاً، ولو طلب قديم
+// (قبل الإضافة دي) بنرجع لبيانات المنتج الحالية.
+function itemTitle(item: OrderItem) {
+  return item.product_title ?? item.product?.title_ar ?? 'منتج';
+}
+function itemVariant(item: OrderItem) {
+  const color = item.variant_color ?? item.variant?.color_ar;
+  const size = item.variant_size ?? item.variant?.size;
+  return color || size ? [color, size].filter(Boolean).join(' / ') : '';
+}
+
 function printReceipt(order: Order) {
   const itemsHtml = (order.order_items ?? [])
     .map(
       (item) => `
       <tr>
-        <td>${item.product?.title_ar ?? 'منتج'}</td>
-        <td style="text-align:center">${item.variant ? item.variant.color_ar + ' / ' + item.variant.size : '—'}</td>
+        <td>${esc(itemTitle(item))}</td>
+        <td style="text-align:center">${esc(itemVariant(item) || '—')}</td>
         <td style="text-align:center">${item.quantity}</td>
         <td style="text-align:left">${priceEGP(item.unit_price_egp * item.quantity)} ج.م</td>
       </tr>`
@@ -367,11 +461,11 @@ function printReceipt(order: Order) {
     </div>
     <div class="order-num">إيصال طلب رقم #${order.order_number}</div>
     <div class="info">
-      <p><strong>العميل:</strong> ${order.customer_name}</p>
-      <p><strong>الهاتف:</strong> ${order.customer_phone}</p>
-      <p><strong>المحافظة:</strong> ${order.governorate}</p>
-      <p><strong>العنوان:</strong> ${order.city_address}</p>
-      <p><strong>طريقة الدفع:</strong> ${PAYMENT_METHODS[order.payment_method as keyof typeof PAYMENT_METHODS] ?? order.payment_method}</p>
+      <p><strong>العميل:</strong> ${esc(order.customer_name)}</p>
+      <p><strong>الهاتف:</strong> ${esc(order.customer_phone)}</p>
+      <p><strong>المحافظة:</strong> ${esc(order.governorate)}</p>
+      <p><strong>العنوان:</strong> ${esc(order.city_address)}</p>
+      <p><strong>طريقة الدفع:</strong> ${esc(PAYMENT_METHODS[order.payment_method as keyof typeof PAYMENT_METHODS] ?? order.payment_method)}</p>
       <p><strong>التاريخ:</strong> ${formatDateTimeArabic(order.created_at)}</p>
     </div>
     <table>
@@ -381,6 +475,7 @@ function printReceipt(order: Order) {
     <div class="totals">
       <div><span>المجموع الفرعي</span><span>${priceEGP(order.subtotal_egp)} ج.م</span></div>
       <div><span>الشحن</span><span>${priceEGP(order.shipping_fee_egp)} ج.م</span></div>
+      ${Number(order.discount_egp) > 0 ? `<div><span>خصم ${esc(order.discount_code)}</span><span>-${priceEGP(order.discount_egp)} ج.م</span></div>` : ''}
       <div class="grand"><span>الإجمالي</span><span>${priceEGP(order.total_amount_egp)} ج.م</span></div>
     </div>
     ${order.allow_inspection ? '<div class="notice">مسموح بالمعاينة قبل الاستلام</div>' : ''}

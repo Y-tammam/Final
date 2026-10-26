@@ -19,6 +19,7 @@ type Stats = {
   topProducts: { title: string; qty: number }[];
   dailyRevenue: { date: string; label: string; revenue: number; orders: number }[];
   recentOrders: Order[];
+  campaigns: { campaign: string; orders: number; delivered: number; cancelled: number; revenue: number }[];
 };
 
 const statusBadge = (status: string) => {
@@ -200,6 +201,44 @@ export function DashboardClient({ stats }: { stats: Stats }) {
             إدارة المخزون
           </Link>
         </div>
+      </div>
+
+      {/* أداء الحملات الإعلانية */}
+      <div className="bg-background border border-border rounded-sm p-5">
+        <h2 className="font-arabic text-base font-semibold mb-1">أداء الحملات الإعلانية</h2>
+        <p className="font-arabic text-xs text-muted-foreground mb-4">
+          من رابط الإعلان (utm_source / utm_campaign). الأهم: نسبة التسليم - الطلبات اللي اتسلّمت فعلاً.
+        </p>
+        {stats.campaigns.length === 0 ? (
+          <p className="font-arabic text-sm text-muted-foreground py-6 text-center">لا توجد طلبات بعد</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-right border-b border-border">
+                  <th className="font-arabic font-medium text-muted-foreground py-2 px-2">المصدر / الحملة</th>
+                  <th className="font-arabic font-medium text-muted-foreground py-2 px-2">طلبات</th>
+                  <th className="font-arabic font-medium text-muted-foreground py-2 px-2">اتسلّم</th>
+                  <th className="font-arabic font-medium text-muted-foreground py-2 px-2">اتلغى</th>
+                  <th className="font-arabic font-medium text-muted-foreground py-2 px-2">إيراد مُسلّم</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.campaigns.map((c) => (
+                  <tr key={c.campaign} className="border-b border-border/50">
+                    <td className="font-arabic py-2 px-2 max-w-[220px] truncate" dir="auto">{c.campaign}</td>
+                    <td className="font-body py-2 px-2 num-rtl">{c.orders}</td>
+                    <td className="font-body py-2 px-2 num-rtl">
+                      {c.delivered} <span className="text-muted-foreground text-xs">({c.orders ? Math.round((c.delivered / c.orders) * 100) : 0}%)</span>
+                    </td>
+                    <td className="font-body py-2 px-2 num-rtl">{c.cancelled}</td>
+                    <td className="font-body py-2 px-2 num-rtl">{priceEGP(c.revenue)} ج.م</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

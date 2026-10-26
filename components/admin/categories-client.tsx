@@ -150,7 +150,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
         </div>
         <button
           onClick={() => setShowAdd((v) => !v)}
-          className="font-arabic bg-foreground text-primary-foreground px-5 py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-2 text-sm"
+          className="font-arabic bg-foreground text-primary-foreground px-5 py-2.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center gap-2 text-sm"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           إضافة فئة
@@ -211,7 +211,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                   <input type="file" accept="image/*" onChange={handleNewImage} disabled={uploadingNewImage} className="hidden" />
                 </label>
               )}
-              <p className="font-arabic text-xs text-muted-foreground">ارفعي صورة من جهازك، هتظهر في صفحة "تسوقي حسب الفئة" بالرئيسية</p>
+              <p className="font-arabic text-xs text-muted-foreground">ارفعي صورة من جهازك، هتظهر في صفحة «تسوقي حسب الفئة» بالرئيسية</p>
             </div>
           </div>
 
@@ -219,7 +219,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
             <button
               onClick={handleAdd}
               disabled={adding}
-              className="font-arabic bg-foreground text-primary-foreground px-5 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-2 disabled:opacity-60"
+              className="font-arabic bg-foreground text-primary-foreground px-5 py-2 rounded-sm text-sm hover:bg-foreground/85 transition-all flex items-center gap-2 disabled:opacity-60"
             >
               {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               حفظ الفئة
@@ -285,7 +285,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                     <button
                       onClick={() => handleSaveEdit(cat.id)}
                       disabled={savingId === cat.id}
-                      className="flex-1 font-arabic text-xs bg-foreground text-primary-foreground px-3 py-2 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      className="flex-1 font-arabic text-xs bg-foreground text-primary-foreground px-3 py-2 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
                     >
                       {savingId === cat.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                       حفظ

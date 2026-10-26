@@ -14,7 +14,31 @@ type Rate = {
   estimated_days: string;
 };
 
-export function ShippingClient({ rates }: { rates: Rate[] }) {
+export function ShippingClient({ rates, freeShippingThreshold }: { rates: Rate[]; freeShippingThreshold: number | null }) {
+  const [threshold, setThreshold] = useState(freeShippingThreshold ? String(freeShippingThreshold) : '');
+  const [savingThreshold, setSavingThreshold] = useState(false);
+
+  // حد الشحن المجاني: place_order بيقرا القيمة دي من store_settings ويطبقها
+  // على السيرفر. فاضي = مفيش شحن مجاني.
+  const saveThreshold = async () => {
+    const value = threshold.trim() ? parseFloat(threshold) : null;
+    if (value !== null && (!value || value <= 0)) {
+      toast.error('اكتبي رقم أكبر من صفر، أو سيبيه فاضي لإلغاء الشحن المجاني');
+      return;
+    }
+    setSavingThreshold(true);
+    const { error } = await supabase
+      .from('store_settings')
+      .update({ free_shipping_threshold_egp: value, updated_at: new Date().toISOString() })
+      .eq('id', true);
+    setSavingThreshold(false);
+    if (error) {
+      toast.error('تعذر الحفظ');
+      return;
+    }
+    toast.success(value ? `الشحن مجاني للطلبات من ${priceEGP(value)} ج.م (بيظهر في المتجر خلال دقايق)` : 'تم إلغاء الشحن المجاني');
+  };
+
   const [list, setList] = useState(rates);
   const [saving, setSaving] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -83,6 +107,36 @@ export function ShippingClient({ rates }: { rates: Rate[] }) {
         </div>
       </div>
 
+      {/* Free shipping */}
+      <div className="bg-background border border-border rounded-sm p-5">
+        <h2 className="font-arabic text-sm font-semibold mb-1 flex items-center gap-2">
+          <Truck className="w-4 h-4 text-accent" strokeWidth={1.5} />
+          الشحن المجاني
+        </h2>
+        <p className="font-arabic text-xs text-muted-foreground mb-4">
+          لو قيمة المنتجات (بعد الخصم) وصلت الرقم ده، الشحن بيبقى مجاني. سيبيه فاضي لو مش عايزة شحن مجاني.
+        </p>
+        <div className="flex gap-2 max-w-sm">
+          <input
+            type="number"
+            min="0"
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+            placeholder="مثلاً 3000"
+            className="flex-1 bg-background border border-border rounded-sm px-3 py-2 font-body text-sm focus:outline-none focus:ring-1 focus:ring-ring num-rtl"
+            dir="ltr"
+          />
+          <button
+            onClick={saveThreshold}
+            disabled={savingThreshold}
+            className="font-arabic bg-foreground text-primary-foreground px-4 py-2 rounded-sm text-sm hover:bg-foreground/85 transition-all flex items-center gap-1.5 disabled:opacity-60"
+          >
+            {savingThreshold ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            حفظ
+          </button>
+        </div>
+      </div>
+
       {/* Add new */}
       <div className="bg-background border border-border rounded-sm p-5">
         <h2 className="font-arabic text-sm font-semibold mb-4 flex items-center gap-2">
@@ -116,7 +170,7 @@ export function ShippingClient({ rates }: { rates: Rate[] }) {
             <button
               onClick={handleAdd}
               disabled={adding}
-              className="font-arabic bg-foreground text-primary-foreground px-4 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5 disabled:opacity-60"
+              className="font-arabic bg-foreground text-primary-foreground px-4 py-2 rounded-sm text-sm hover:bg-foreground/85 transition-all flex items-center gap-1.5 disabled:opacity-60"
             >
               {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               إضافة
@@ -168,7 +222,7 @@ export function ShippingClient({ rates }: { rates: Rate[] }) {
                       <button
                         onClick={() => saveRate(rate)}
                         disabled={saving === rate.id}
-                        className="font-arabic text-xs bg-foreground text-primary-foreground px-3 py-1.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5 disabled:opacity-60"
+                        className="font-arabic text-xs bg-foreground text-primary-foreground px-3 py-1.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center gap-1.5 disabled:opacity-60"
                       >
                         {saving === rate.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                         حفظ

@@ -67,7 +67,7 @@ export function ProductsClient({ initialProducts, categories: initialCategories 
         </div>
         <button
           onClick={() => { setEditing(null); setShowForm(true); }}
-          className="font-arabic bg-foreground text-primary-foreground px-5 py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-2 text-sm"
+          className="font-arabic bg-foreground text-primary-foreground px-5 py-2.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center gap-2 text-sm"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           إضافة منتج
@@ -342,20 +342,42 @@ const handleAddCategory = async () => {
         const { data, error } = await supabase.from('products').update(payload).eq('id', product.id).select('*, category:categories(*), variants:product_variants(*)').single();
         if (error) throw error;
 
-        await supabase.from('product_variants').delete().eq('product_id', product.id);
-        const variantsToInsert = variants.map((v) => ({
-          product_id: product.id,
-          size: v.size,
-          color_ar: v.color_ar,
-          color_hex: v.color_hex || null,
-          stock_quantity: v.stock_quantity,
-          sku: v.sku || null,
-        }));
-        if (variantsToInsert.length > 0) {
-          const { data: newVariants, error: vErr } = await supabase.from('product_variants').insert(variantsToInsert).select('*');
-          if (vErr) throw vErr;
-          if (newVariants) data.variants = newVariants;
+        // قبل كده كنا بنمسح كل المقاسات/الألوان ونضيفها من جديد مع كل تعديل،
+        // وده كان بيضيّع المقاس واللون من الطلبات القديمة، وبيلغي أي منتج
+        // في سلة العملاء، وبيرجّع المخزون للرقم اللي كان وقت فتح الفورم.
+        // دلوقتي: بنحدّث الموجود، ونضيف الجديد، ونمسح اللي اتشال بس، والمخزون
+        // بيتعدّل بالفرق (adjust_variant_stock) عشان المبيعات اللي حصلت
+        // والفورم مفتوح متضيعش.
+        const original = new Map((product.variants ?? []).map((v) => [v.id, v]));
+        const keptIds = new Set(variants.filter((v) => v.id).map((v) => v.id));
+        const removedIds = Array.from(original.keys()).filter((id) => !keptIds.has(id));
+
+        if (removedIds.length > 0) {
+          const { error: delErr } = await supabase.from('product_variants').delete().in('id', removedIds);
+          if (delErr) throw delErr;
         }
+
+        for (const v of variants) {
+          const fields = { size: v.size, color_ar: v.color_ar, color_hex: v.color_hex || null, sku: v.sku || null };
+          const before = v.id ? original.get(v.id) : undefined;
+          if (before) {
+            const { error: upErr } = await supabase.from('product_variants').update(fields).eq('id', v.id);
+            if (upErr) throw upErr;
+            const delta = v.stock_quantity - before.stock_quantity;
+            if (delta !== 0) {
+              const { error: stockErr } = await supabase.rpc('adjust_variant_stock', { p_variant_id: v.id, p_delta: delta });
+              if (stockErr) throw stockErr;
+            }
+          } else {
+            const { error: insErr } = await supabase
+              .from('product_variants')
+              .insert({ ...fields, product_id: product.id, stock_quantity: v.stock_quantity });
+            if (insErr) throw insErr;
+          }
+        }
+
+        const { data: freshVariants } = await supabase.from('product_variants').select('*').eq('product_id', product.id);
+        data.variants = freshVariants ?? [];
         onSave(data as Product);
         toast.success('تم تحديث المنتج');
       } else {
@@ -490,7 +512,7 @@ const handleAddCategory = async () => {
               <button type="button" onClick={addImage} className="font-arabic bg-secondary px-3 py-2 rounded-sm text-sm hover:bg-accent/20 transition-colors">إضافة URL</button>
               
               <label className={cn(
-                "font-arabic bg-foreground text-primary-foreground px-3 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
+                "font-arabic bg-foreground text-primary-foreground px-3 py-2 rounded-sm text-sm hover:bg-foreground/85 transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
                 uploadingImages && "opacity-60 pointer-events-none"
               )}>
                 {uploadingImages ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
@@ -536,7 +558,7 @@ const handleAddCategory = async () => {
 
           {/* Submit */}
           <div className="flex gap-3 pt-2 sticky bottom-0 bg-background py-3">
-            <button type="submit" disabled={loading} className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+            <button type="submit" disabled={loading} className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : product ? 'حفظ التعديلات' : 'إضافة المنتج'}
             </button>
             <button type="button" onClick={onClose} className="font-arabic border border-border px-6 py-3 rounded-sm hover:bg-secondary transition-all">

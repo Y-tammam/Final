@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 // (the orders/products tables use authenticated-only SELECT policies).
 // Forwarding the request cookies lets the SSR client act as the logged-in admin.
 export async function supabaseServer() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

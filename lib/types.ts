@@ -50,6 +50,9 @@ export type Order = {
   total_amount_egp: number;
   payment_method: string;
   payment_receipt_url: string | null;
+  discount_code: string | null;
+  discount_egp: number;
+  attribution?: Record<string, string> | null;
   order_status: string;
   allow_inspection: boolean;
   notes: string | null;
@@ -64,6 +67,9 @@ export type OrderItem = {
   variant_id: string | null;
   quantity: number;
   unit_price_egp: number;
+  product_title: string | null;
+  variant_size: string | null;
+  variant_color: string | null;
   product?: Product;
   variant?: ProductVariant;
 };
@@ -79,4 +85,47 @@ export type CartItem = {
   product: Product;
   variant: ProductVariant;
   quantity: number;
+};
+
+export type DiscountCode = {
+  id: string;
+  code: string;
+  discount_type: 'percent' | 'fixed';
+  value: number;
+  min_order_egp: number;
+  max_discount_egp: number | null;
+  starts_at: string | null;
+  expires_at: string | null;
+  usage_limit: number | null;
+  used_count: number;
+  one_per_phone: boolean;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type StoreSettings = {
+  free_shipping_threshold_egp: number | null;
+  announcement_text: string | null;
+  announcement_link: string | null;
+  announcement_ends_at: string | null;
+};
+
+export type StorePage = {
+  slug: 'shipping' | 'exchange' | 'privacy';
+  title_ar: string;
+  body_ar: string;
+  updated_at: string;
+};
+
+export type CheckoutDraft = {
+  id: string;
+  phone: string;
+  customer_name: string | null;
+  governorate: string | null;
+  cart: { variant_id: string; title: string; slug: string; size: string; color: string; quantity: number; unit_price: number }[];
+  subtotal_egp: number;
+  attribution: Record<string, string> | null;
+  created_at: string;
+  updated_at: string;
+  contacted_at: string | null;
 };
