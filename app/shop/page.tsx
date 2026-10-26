@@ -9,11 +9,10 @@ export default async function ShopPage() {
 
   return (
     <StorefrontLayout>
-      <div className="bg-secondary/40 py-12 lg:py-16 border-b border-border">
+      <div className="bg-secondary/40 py-10 lg:py-16 border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="font-body text-xs tracking-[0.3em] uppercase text-accent">Collection</span>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold mt-2">المتجر</h1>
-          <p className="font-arabic text-muted-foreground mt-3">اكتشفي تشكيلتنا الكاملة من الأزياء التركية الفاخرة</p>
+          <h1 className="font-display text-4xl sm:text-5xl font-medium leading-[1.3]">المتجر</h1>
+          <p className="font-arabic text-muted-foreground mt-3 max-w-md mx-auto">اكتشفي تشكيلتنا الكاملة من الأزياء التركية الفاخرة</p>
         </div>
       </div>
       <ShopContentWithUrlFilter products={products} categories={categories} />

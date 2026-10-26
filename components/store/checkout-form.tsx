@@ -405,6 +405,19 @@ export function CheckoutForm({
           </div>
         </div>
 
+        {/* تأكيد سريع من العميلة على واتساب - بيقلل الطلبات اللي بتترفض عند الاستلام */}
+        <a
+          href={`https://wa.me/${BRAND_CONFIG.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+            `أهلاً ${BRAND_CONFIG.nameArabic}، أنا ${form.customer_name.trim()} وبأكد طلبي رقم #${success.orderNumber} بإجمالي ${priceEGP(success.total)} ج.م`
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full sm:w-auto sm:inline-flex mx-auto mb-4 bg-[#25D366] text-white font-arabic px-8 py-3 hover:opacity-90 transition-opacity"
+        >
+          <MessageCircle className="w-5 h-5" strokeWidth={1.5} />
+          أكدي طلبك على واتساب (أسرع في الشحن)
+        </a>
+
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/shop" className="font-arabic bg-foreground text-primary-foreground px-8 py-3 rounded-sm hover:bg-foreground/85 transition-all">
             متابعة التسوق

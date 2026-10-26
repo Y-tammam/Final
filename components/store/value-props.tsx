@@ -1,41 +1,37 @@
 import { Sparkles, Eye, Truck } from 'lucide-react';
+import { BRAND_CONFIG } from '@/lib/brand';
 
 const PROPS = [
   {
-    icon: Sparkles,
-    title: "خامات تركية 100%",
-    desc: "أقمشة فاخرة مستوردة من تركيا",
-  },
-  {
     icon: Eye,
     title: "معاينة قبل الدفع",
-    desc: "افحصي طلبك قبل الاستلام",
+    desc: "افحصي طلبك مع المندوب قبل ما تدفعي",
   },
   {
     icon: Truck,
-    title: "شحن سريع لكل المحافظات",
-    desc: "توصيل خلال 2-4 أيام عمل",
+    title: "شحن لكل المحافظات",
+    desc: `توصيل خلال ${BRAND_CONFIG.shipping.defaultDeliveryDays}`,
+  },
+  {
+    icon: Sparkles,
+    title: "خامات تركية",
+    desc: "أقمشة مستوردة مختارة بعناية",
   },
 ];
 
+// شريط هادي واحد بخطوط رفيعة - مش "كروت" - بيفكّر بالضمانات بين قسمين منتجات
 export function ValueProps() {
   return (
-    <section className="border-b border-border bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-          {PROPS.map((prop) => (
-            <div key={prop.title} className="flex items-center gap-4 justify-center sm:justify-start fade-up">
-              <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                <prop.icon className="w-5 h-5 text-accent" strokeWidth={1.5} />
-              </div>
-              <div>
-                <h3 className="font-arabic text-sm font-semibold text-foreground">{prop.title}</h3>
-                <p className="font-arabic text-xs text-muted-foreground mt-0.5">{prop.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+    <section aria-label={`لماذا ${BRAND_CONFIG.nameArabic}`} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <ul className="grid grid-cols-3 border-y border-border divide-x divide-x-reverse divide-border">
+        {PROPS.map((prop) => (
+          <li key={prop.title} className="flex flex-col items-center text-center gap-2 py-6 sm:py-8 px-2">
+            <prop.icon className="w-5 h-5 text-foreground/70" strokeWidth={1.25} aria-hidden="true" />
+            <h3 className="font-arabic text-[13px] sm:text-sm font-medium text-foreground leading-[1.5]">{prop.title}</h3>
+            <p className="hidden sm:block font-arabic text-sm text-muted-foreground leading-[1.6]">{prop.desc}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

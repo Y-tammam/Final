@@ -90,10 +90,10 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
   const showHint = sanitizeTerm(query).length < MIN_CHARS;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-background fade-in overflow-y-auto" role="dialog" aria-modal="true" aria-label="بحث">
+    <div className="fixed inset-0 z-[70] bg-background fade-in overflow-y-auto overscroll-contain" role="dialog" aria-modal="true" aria-label="بحث">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16">
         <div className="flex items-center justify-end">
-          <button onClick={onClose} className="p-2 -ml-2 text-foreground/80 hover:text-foreground transition-colors" aria-label="إغلاق البحث">
+          <button type="button" onClick={onClose} className="w-11 h-11 -ml-2.5 inline-flex items-center justify-center text-foreground/80 hover:text-foreground transition-colors" aria-label="إغلاق البحث">
             <X className="w-6 h-6" strokeWidth={1.5} />
           </button>
         </div>
@@ -106,15 +106,18 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="ابحثي عن فستان، عباية، طقم..."
-            className="flex-1 bg-transparent outline-none font-arabic text-lg sm:text-2xl placeholder:text-muted-foreground/70"
+            className="flex-1 min-w-0 bg-transparent outline-none font-arabic text-lg sm:text-2xl placeholder:text-muted-foreground/70"
             aria-label="كلمة البحث"
+            name="q"
+            autoComplete="off"
+            enterKeyHint="search"
           />
           {loading && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground shrink-0" strokeWidth={1.5} />}
         </div>
 
         {showHint && (
           <div className="mt-10 text-center">
-            <p className="font-arabic text-sm text-muted-foreground">اكتب اسم المنتج</p>
+            <p className="font-arabic text-sm text-muted-foreground">اكتبي اسم القطعة أو نوعها</p>
             <Link
               href="/shop"
               onClick={onClose}
@@ -132,7 +135,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
             <Link
               href="/shop"
               onClick={onClose}
-              className="inline-block mt-6 bg-foreground text-primary-foreground font-arabic text-sm px-8 py-3"
+              className="inline-flex items-center h-12 mt-6 bg-foreground text-background font-arabic text-[15px] px-10 hover:bg-foreground/85 transition-colors"
             >
               المتجر
             </Link>
@@ -140,7 +143,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
         )}
 
         {!showHint && results.length > 0 && (
-          <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-x-6">
+          <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-8 sm:gap-x-6">
             {results.map((p) => (
               <Link key={p.id} href={`/product/${p.slug}`} onClick={onClose} className="group block">
                 <div className="relative aspect-[3/4] overflow-hidden bg-muted">
@@ -150,18 +153,18 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                       alt={p.title_ar}
                       fill
                       sizes="(max-width: 640px) 50vw, 240px"
-                      className="object-cover transition-transform [transition-duration:1200ms] ease-luxury group-hover:scale-[1.03]"
+                      className="object-cover transition-transform [transition-duration:1200ms] ease-luxury motion-safe:group-hover:scale-[1.03]"
                     />
                   )}
                 </div>
-                <p className="font-arabic text-sm text-foreground mt-3 line-clamp-1">{p.title_ar}</p>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <span className="font-body text-sm text-foreground num-rtl">
+                <p className="font-arabic text-sm leading-[1.6] text-foreground mt-3 line-clamp-1">{p.title_ar}</p>
+                <div className="flex items-baseline flex-wrap gap-x-2 mt-1 font-arabic tabular-nums">
+                  <span className="text-sm text-foreground">
                     {priceEGP(p.sale_price_egp ?? p.price_egp)} ج.م
                   </span>
                   {p.sale_price_egp != null && p.sale_price_egp < p.price_egp && (
-                    <span className="font-body text-xs text-muted-foreground line-through num-rtl">
-                      {priceEGP(p.price_egp)}
+                    <span className="text-[13px] text-muted-foreground line-through">
+                      {priceEGP(p.price_egp)} ج.م
                     </span>
                   )}
                 </div>

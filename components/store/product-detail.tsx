@@ -4,6 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ShoppingBag, MessageCircle, Ruler, Check, ChevronLeft, ChevronRight, Truck, Eye, Sparkles, X, Maximize2, Plus } from 'lucide-react';
+
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const toArabicDigits = (v: string | number) => String(v).replace(/[0-9]/g, (d) => AR_DIGITS[Number(d)]);
+// "2-4 أيام عمل" → "٢–٤ أيام عمل"
+const DELIVERY_DAYS = toArabicDigits(BRAND_CONFIG_DAYS()).replace('-', '–');
+function BRAND_CONFIG_DAYS() {
+  return BRAND_CONFIG.shipping.defaultDeliveryDays;
+}
 import type { Product, ProductVariant } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useCart } from '@/lib/cart-context';

@@ -1,31 +1,34 @@
 import Link from 'next/link';
 import { ProductCard } from '@/components/store/product-card';
 import type { Product } from '@/lib/types';
-import { ChevronLeft, Sparkles } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
+// ٤ قطع على الموبايل و٨ على الديسكتوب - كفاية تفتح الشهية من غير سكرول طويل
 export function NewArrivals({ products }: { products: Product[] }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-36">
-      <div className="flex items-end justify-between mb-12">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-28" aria-labelledby="new-arrivals-title">
+      <div className="flex items-end justify-between gap-6 mb-10 lg:mb-14">
         <div>
-          <span className="font-body text-xs tracking-[0.3em] uppercase text-accent flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} />
-            New Arrivals
-          </span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-medium mt-2">وصلنا حديثاً</h2>
-          <p className="font-arabic text-muted-foreground mt-3 max-w-md">أحدث القطع اللي وصلت للمتجر، كوني أول من تقتنيها</p>
+          <h2 id="new-arrivals-title" className="font-display text-3xl sm:text-4xl lg:text-5xl font-medium leading-[1.3]">
+            وصلنا حديثاً
+          </h2>
+          <p className="font-arabic text-muted-foreground mt-3 max-w-md">أحدث القطع في المتجر، بكميات محدودة من كل موديل</p>
         </div>
-        <Link href="/shop" className="hidden sm:flex items-center gap-2 font-arabic text-sm text-foreground/70 hover:text-accent transition-colors group">
+        <Link
+          href="/shop"
+          className="shrink-0 inline-flex items-center gap-1.5 font-arabic text-sm text-foreground/70 hover:text-foreground transition-colors py-2"
+        >
           عرض الكل
-          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" strokeWidth={1.5} />
+          <ChevronLeft className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 sm:gap-x-6 lg:gap-x-8">
-        {products.map((product, i) => (
-          <div key={product.id} className="fade-up" style={{ animationDelay: `${i * 80}ms` }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-8 sm:gap-x-6 lg:gap-x-8 lg:gap-y-14">
+        {products.slice(0, 8).map((product, i) => (
+          <div key={product.id} className={cn(i >= 4 && 'hidden lg:block')}>
             <ProductCard product={product} isNew />
           </div>
         ))}

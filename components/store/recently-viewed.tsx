@@ -13,8 +13,8 @@ export function RecentlyViewed({ excludeId, title = 'شوهد مؤخراً' }: {
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 border-t border-border">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold mb-6">{title}</h2>
-      <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory [scrollbar-width:thin]">
+      <h2 className="font-display text-2xl sm:text-3xl font-medium leading-[1.3] mb-6">{title}</h2>
+      <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-3 sm:gap-4 overflow-x-auto overscroll-x-contain pb-2 snap-x snap-mandatory scroll-px-4 [scrollbar-width:thin]">
         {items.map((p) => {
           const price = p.sale_price_egp ?? p.price_egp;
           return (
@@ -30,12 +30,12 @@ export function RecentlyViewed({ excludeId, title = 'شوهد مؤخراً' }: {
                     alt={p.title_ar}
                     fill
                     sizes="160px"
-                    className="object-cover transition-transform [transition-duration:1200ms] ease-luxury group-hover:scale-[1.03]"
+                    className="object-cover transition-transform [transition-duration:1200ms] ease-luxury motion-safe:group-hover:scale-[1.03]"
                   />
                 )}
               </div>
-              <p className="font-arabic text-xs sm:text-sm text-foreground mt-2 line-clamp-1">{p.title_ar}</p>
-              <p className="font-body text-xs text-muted-foreground mt-0.5 num-rtl">{priceEGP(price)} ج.م</p>
+              <p className="font-arabic text-[13px] sm:text-sm leading-[1.6] text-foreground mt-2 line-clamp-1">{p.title_ar}</p>
+              <p className="font-arabic text-[13px] text-muted-foreground tabular-nums">{priceEGP(price)} ج.م</p>
             </Link>
           );
         })}

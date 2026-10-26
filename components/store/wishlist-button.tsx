@@ -7,7 +7,7 @@ import { useWishlist, type SnapshotSource } from '@/lib/wishlist-context';
 import { cn } from '@/lib/utils';
 
 // زرار القلب: 'icon' للكروت (فوق الصورة)، و'full' لصفحة المنتج (زرار بعرض كامل بنص).
-// الزرار ده بيتحط جوه <Link> في الكروت، فلازم نوقف الـ click عشان مايفتحش صفحة المنتج.
+// في الكروت الزرار بقى جنب الـ <Link> مش جواه، بس بنوقف الـ click برضه احتياطي.
 export function WishlistButton({
   product,
   className,
@@ -51,6 +51,7 @@ export function WishlistButton({
     );
   }
 
+  // مساحة اللمس 44px، والدايرة الظاهرة أصغر عشان متغطيش على الصورة
   return (
     <button
       type="button"
@@ -58,12 +59,14 @@ export function WishlistButton({
       aria-label={label}
       aria-pressed={saved}
       title={label}
-      className={cn(
-        'w-9 h-9 flex items-center justify-center rounded-full bg-background/90 backdrop-blur-sm text-foreground hover:text-accent transition-colors duration-300',
-        className
-      )}
+      className={cn('w-11 h-11 flex items-center justify-center text-foreground group/wish', className)}
     >
-      <Heart className={cn('w-4 h-4 transition-transform duration-300', saved && 'fill-current text-accent scale-110')} strokeWidth={1.5} />
+      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-background/90 transition-colors duration-300 group-hover/wish:bg-background">
+        <Heart
+          className={cn('w-4 h-4 transition-[color,fill,transform] duration-300', saved && 'fill-current text-accent scale-110')}
+          strokeWidth={1.5}
+        />
+      </span>
     </button>
   );
 }
