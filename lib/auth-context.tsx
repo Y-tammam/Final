@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { getSupabase, hasAuthCookie } from './supabase-lazy';
 
 type AuthContextValue = {
   session: Session | null;
@@ -36,34 +36,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
-    };
+  // بنحمّل Supabase ونسمع لتغييرات الدخول مرة واحدة بس، ولما نحتاجه:
+  // - فوراً لو فيه كوكي جلسة (العميلة مسجلة دخول قبل كده)
+  // - أو أول ما العميلة تدوس تسجيل دخول / حساب جديد
+  // الزائرة الجديدة (معظم زوار الإعلانات) مبتحملش مكتبة Supabase خالص هنا.
+  const listening = useRef(false);
+  const ensureClient = useCallback(async () => {
+    const supabase = await getSupabase();
+    if (!listening.current) {
+      listening.current = true;
+      supabase.auth.onAuthStateChange((_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        setLoading(false);
+      });
+    }
+    return supabase;
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    const start = () =>
+      ensureClient().then((supabase) =>
+        supabase.auth.getSession().then(({ data }) => {
+          if (!mounted) return;
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+          setLoading(false);
+        })
+      );
+
+    // صفحة تانية حمّلت Supabase (دخول الأدمن مثلاً) → نبدأ نسمع
+    const onReady = () => start();
+    window.addEventListener('supabase:ready', onReady);
+
+    if (hasAuthCookie() || (window as unknown as { __supabaseReady?: boolean }).__supabaseReady) {
+      start();
+    } else {
+      setLoading(false);
+    }
+    return () => {
+      mounted = false;
+      window.removeEventListener('supabase:ready', onReady);
+    };
+  }, [ensureClient]);
+
   const signIn = async (email: string, password: string) => {
+    const supabase = await ensureClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   };
 
   const signUp = async (email: string, password: string) => {
+    const supabase = await ensureClient();
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -91,11 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * هي اللي بتتأكد منه (type: 'signup').
    */
   const verifySignupCode = async (email: string, code: string) => {
+    const supabase = await ensureClient();
     const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
     return { error: error?.message ?? null };
   };
 
   const resendSignupCode = async (email: string) => {
+    const supabase = await ensureClient();
     const { error } = await supabase.auth.resend({ type: 'signup', email });
     return { error: error?.message ?? null };
   };
@@ -117,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
 
   const signOut = async () => {
+    const supabase = await ensureClient();
     await supabase.auth.signOut();
   };
 
@@ -130,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     governorate?: string;
     city_address?: string;
   }) => {
+    const supabase = await ensureClient();
     const { error } = await supabase.auth.updateUser({ data });
     return { error: error?.message ?? null };
   };

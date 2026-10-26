@@ -54,12 +54,51 @@ export const metadata: Metadata = {
   title: { default: SITE_TITLE, template: `%s | ${BRAND_CONFIG.nameArabic}` },
   description: BRAND_CONFIG.tagline,
   keywords: ['ملابس تركية', 'عبايات', 'فساتين', 'موضة نسائية', 'مصر', 'أزياء فاخرة', BRAND_CONFIG.nameArabic],
+  alternates: { canonical: '/' },
   openGraph: {
     title: SITE_TITLE,
     description: BRAND_CONFIG.tagline,
     type: 'website',
     locale: 'ar_EG',
+    siteName: BRAND_CONFIG.nameArabic,
   },
+  twitter: { card: 'summary_large_image', title: SITE_TITLE, description: BRAND_CONFIG.tagline },
+  // توثيق Google Search Console: حطي الكود في NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
+};
+
+// بيانات المتجر لجوجل (اسم البراند واللوجو وطرق التواصل)
+const ORGANIZATION_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'OnlineStore',
+      '@id': `${SITE_URL}/#organization`,
+      name: BRAND_CONFIG.nameArabic,
+      alternateName: BRAND_CONFIG.name,
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.png`,
+      description: BRAND_CONFIG.tagline,
+      sameAs: [`https://instagram.com/${BRAND_CONFIG.contact.instagram.replace('@', '')}`],
+      contactPoint: {
+        '@type': 'ContactPoint',
+        telephone: BRAND_CONFIG.contact.whatsapp,
+        contactType: 'customer service',
+        areaServed: 'EG',
+        availableLanguage: ['ar'],
+      },
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: BRAND_CONFIG.nameArabic,
+      inLanguage: 'ar',
+      publisher: { '@id': `${SITE_URL}/#organization` },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -71,6 +110,10 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD).replace(/</g, '\\u003c') }}
+        />
       </head>
       <body className={`${playfair.variable} ${messiri.variable} ${jakarta.variable} ${cairo.variable} font-arabic bg-background text-foreground antialiased`}>
         <AuthProvider>

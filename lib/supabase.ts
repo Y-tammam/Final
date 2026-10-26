@@ -14,3 +14,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 // بنجاح. دلوقتي العميل ده هو المستخدم في كل المشروع (login, auth-context,
 // admin-guard, إلخ) فالجلسة بقت متسقة في كل مكان.
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+
+// إشارة لـ AuthProvider (lib/auth-context.tsx) إن العميل اتحمّل - عشان يبدأ
+// يسمع لتسجيل الدخول/الخروج حتى لو صفحة تانية هي اللي حمّلته (صفحة دخول
+// الأدمن، نافذة تسجيل الدخول، صفحة المنتج...).
+if (typeof window !== 'undefined') {
+  (window as unknown as { __supabaseReady?: boolean }).__supabaseReady = true;
+  window.dispatchEvent(new Event('supabase:ready'));
+}

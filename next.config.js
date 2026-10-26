@@ -23,6 +23,10 @@ const nextConfig = {
     minimumCacheTTL: 86400,
   },
   poweredByHeader: false,
+  // بيستورد الأيقونات/الدوال اللي بنستخدمها بس بدل المكتبة كلها
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'date-fns'],
+  },
   // هيدرز أمان لكل الصفحات: بتمنع تضمين الموقع في iframe على موقع تاني
   // (clickjacking)، وبتجبر HTTPS، وبتمنع المتصفح من تخمين نوع الملفات.
   async headers() {
