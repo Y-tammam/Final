@@ -10,7 +10,9 @@ import { SITE_URL } from '@/lib/site';
 export const revalidate = 3600;
 
 function csv(value: unknown): string {
-  const s = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+  let s = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+  // خلية بتبدأ بـ = + - @ بتتحول لمعادلة لو الملف اتفتح في Excel/Sheets
+  if (/^[=+\-@\t]/.test(s)) s = `'${s}`;
   return /[",]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

@@ -28,6 +28,8 @@ ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS announcement_text TEXT
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS announcement_link TEXT
   CHECK (announcement_link IS NULL OR announcement_link ~ '^/[A-Za-z0-9/_?=&%.#-]*$');
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS announcement_ends_at TIMESTAMPTZ;
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS max_orders_per_10min INT NOT NULL DEFAULT 150
+  CHECK (max_orders_per_10min BETWEEN 10 AND 100000);
 
 -- =====================================================================
 -- 2) صفحات السياسات
@@ -139,8 +141,7 @@ BEGIN
     RETURN;
   END IF;
 
-  v_ip := nullif(left(coalesce(v_headers->>'cf-connecting-ip',
-    trim(split_part(coalesce(v_headers->>'x-forwarded-for', ''), ',', 1))), 64), '');
+  v_ip := nullif(left(v_headers->>'cf-connecting-ip', 64), '');
   IF v_ip IS NOT NULL AND (SELECT count(*) FROM checkout_drafts d
       WHERE d.client_ip = v_ip AND d.updated_at > now() - interval '1 hour') >= 30 THEN
     RETURN;
@@ -226,11 +227,10 @@ DECLARE
   v_attr JSONB;
 BEGIN
   -- IP العميلة (Supabase بيمرر هيدرز الطلب للدالة)
-  v_ip := coalesce(
-    v_headers->>'cf-connecting-ip',
-    trim(split_part(coalesce(v_headers->>'x-forwarded-for', ''), ',', 1))
-  );
-  v_ip := nullif(left(v_ip, 64), '');
+  -- cf-connecting-ip بس: Supabase ورا Cloudflare، و Cloudflare بيكتب الهيدر
+  -- ده بنفسه (العميل ميقدرش يزوّره). x-forwarded-for العميل يقدر يكتب فيه أي
+  -- حاجة، فمش بنعتمد عليه.
+  v_ip := nullif(left(v_headers->>'cf-connecting-ip', 64), '');
 
   IF length(trim(coalesce(p_customer_name, ''))) NOT BETWEEN 2 AND 100 THEN
     RAISE EXCEPTION 'الرجاء إدخال الاسم';
@@ -269,6 +269,19 @@ BEGIN
     RAISE EXCEPTION 'سلتك فارغة';
   END IF;
 
+  -- كل عنصر لازم يكون {variant_id: uuid, quantity: رقم صحيح 1-20} قبل أي
+  -- تحويل، عشان المدخلات الغلط ترجع رسالة واضحة مش خطأ داخلي
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(p_items) e
+     WHERE jsonb_typeof(e) <> 'object'
+        OR jsonb_typeof(e->'quantity') <> 'number'
+        OR (e->>'quantity') !~ '^[0-9]{1,2}$'
+        OR (e->>'quantity')::INT NOT BETWEEN 1 AND 20
+        OR coalesce(e->>'variant_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  ) THEN
+    RAISE EXCEPTION 'منتج في السلة لم يعد متاحاً، برجاء تحديث السلة';
+  END IF;
+
   SELECT coalesce(sum((e->>'quantity')::INT), 0) INTO v_total_qty FROM jsonb_array_elements(p_items) e;
   IF v_total_qty > 20 THEN
     RAISE EXCEPTION 'الحد الأقصى 20 قطعة في الطلب الواحد - للطلبات الأكبر تواصلي معنا على واتساب';
@@ -279,6 +292,15 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('order-phone:' || v_phone));
   IF v_ip IS NOT NULL THEN
     PERFORM pg_advisory_xact_lock(hashtext('order-ip:' || v_ip));
+  END IF;
+
+  -- قاطع عام: لو اتعمل عدد طلبات غير طبيعي في 10 دقايق (هجوم بأرقام
+  -- وIPs كتير عشان يخلّص المخزون)، الطلبات الجديدة بتقف مؤقتاً لحد ما
+  -- الموجة تعدي. الرقم أعلى بكتير من أي ضغط حقيقي متوقع للمتجر - عدّليه
+  -- من store_settings.max_orders_per_10min لو احتجتي.
+  IF (SELECT count(*) FROM orders o WHERE o.created_at > now() - interval '10 minutes')
+     >= coalesce((SELECT st.max_orders_per_10min FROM store_settings st LIMIT 1), 150) THEN
+    RAISE EXCEPTION 'في ضغط كبير على الطلبات دلوقتي، برجاء المحاولة بعد دقايق أو اطلبي على واتساب';
   END IF;
 
   IF (SELECT count(*) FROM orders o
@@ -378,5 +400,128 @@ $$;
 REVOKE ALL ON FUNCTION place_order(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, JSONB, TEXT, JSONB) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION place_order(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, JSONB, TEXT, JSONB) TO anon, authenticated;
 
+
+-- =====================================================================
+-- 7) إصلاحات من اختبار الاختراق
+-- =====================================================================
+
+-- (أ) أكواد الخصم: رسالة واحدة لكل أسباب الرفض (قبل كده الرسايل المختلفة
+-- كانت بتكشف إن الكود موجود وحده الأدنى، وإن رقم معين استخدمه قبل كده).
+CREATE OR REPLACE FUNCTION compute_discount(p_code discount_codes, p_subtotal NUMERIC, p_phone TEXT)
+RETURNS NUMERIC
+LANGUAGE plpgsql
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_discount NUMERIC;
+BEGIN
+  IF p_code.id IS NULL OR NOT p_code.is_active
+     OR (p_code.starts_at IS NOT NULL AND now() < p_code.starts_at)
+     OR (p_code.expires_at IS NOT NULL AND now() > p_code.expires_at)
+     OR (p_code.usage_limit IS NOT NULL AND p_code.used_count >= p_code.usage_limit)
+     OR p_subtotal < p_code.min_order_egp
+     OR (p_code.one_per_phone AND p_phone <> '' AND EXISTS (
+          SELECT 1 FROM orders o
+           WHERE o.discount_code = p_code.code AND o.customer_phone = p_phone
+             AND o.order_status <> 'cancelled')) THEN
+    RAISE EXCEPTION 'كود الخصم غير صالح لهذا الطلب';
+  END IF;
+
+  IF p_code.discount_type = 'percent' THEN
+    v_discount := round(p_subtotal * p_code.value / 100, 2);
+    IF p_code.max_discount_egp IS NOT NULL THEN
+      v_discount := least(v_discount, p_code.max_discount_egp);
+    END IF;
+  ELSE
+    v_discount := p_code.value;
+  END IF;
+  RETURN least(v_discount, p_subtotal);
+END;
+$$;
+REVOKE ALL ON FUNCTION compute_discount(discount_codes, NUMERIC, TEXT) FROM PUBLIC;
+
+-- محاولات المعاينة: حد 15 محاولة فاشلة في الساعة لكل IP (ضد تخمين الأكواد)
+CREATE TABLE IF NOT EXISTS discount_attempts (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  client_ip TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_discount_attempts_ip ON discount_attempts(client_ip, created_at DESC);
+ALTER TABLE discount_attempts ENABLE ROW LEVEL SECURITY;  -- مفيش policies: محدش يقراه من بره
+
+-- preview_discount: مبقتش بتاخد رقم الموبايل (الشرط ده بيتراجع في place_order
+-- بس)، وبترجع NULL بدل رسالة خطأ للكود المرفوض عشان المحاولة تتسجل.
+DROP FUNCTION IF EXISTS preview_discount(TEXT, NUMERIC, TEXT);
+CREATE OR REPLACE FUNCTION preview_discount(p_code TEXT, p_subtotal NUMERIC)
+RETURNS NUMERIC
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_code discount_codes;
+  v_ip TEXT := nullif(left(nullif(current_setting('request.headers', true), '')::JSON->>'cf-connecting-ip', 64), '');
+  v_amount NUMERIC;
+BEGIN
+  IF v_ip IS NOT NULL AND (SELECT count(*) FROM discount_attempts a
+      WHERE a.client_ip = v_ip AND a.created_at > now() - interval '1 hour') >= 15 THEN
+    RAISE EXCEPTION 'محاولات كتير، جربي تاني بعد شوية';
+  END IF;
+
+  IF length(coalesce(p_code, '')) BETWEEN 3 AND 30 THEN
+    SELECT * INTO v_code FROM discount_codes WHERE code = upper(trim(p_code));
+  END IF;
+  BEGIN
+    v_amount := compute_discount(v_code, greatest(coalesce(p_subtotal, 0), 0), '');
+  EXCEPTION WHEN raise_exception THEN
+    v_amount := NULL;
+  END;
+
+  IF v_amount IS NULL AND v_ip IS NOT NULL THEN
+    INSERT INTO discount_attempts (client_ip) VALUES (v_ip);
+    DELETE FROM discount_attempts WHERE created_at < now() - interval '1 day';
+  END IF;
+  RETURN v_amount;
+END;
+$$;
+REVOKE ALL ON FUNCTION preview_discount(TEXT, NUMERIC) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION preview_discount(TEXT, NUMERIC) TO anon, authenticated;
+
+-- (ب) إرفاق الإيصال لازم يكون من نفس اللي عمل الطلب: event_id بيرجع للمتصفح
+-- اللي عمل الطلب بس، فبقى شرط تاني مع order_id.
+DROP FUNCTION IF EXISTS attach_order_receipt(UUID, TEXT);
+CREATE OR REPLACE FUNCTION attach_order_receipt(p_order_id UUID, p_event_id UUID, p_receipt TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_receipt IS NULL OR length(p_receipt) > 600000
+     OR p_receipt !~ '^data:image/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$' THEN
+    RAISE EXCEPTION 'صورة الإيصال غير صالحة';
+  END IF;
+
+  UPDATE orders
+     SET payment_receipt_url = p_receipt
+   WHERE id = p_order_id
+     AND event_id = p_event_id
+     AND (user_id IS NULL OR user_id = (select auth.uid()))
+     AND payment_method = 'Vodafone Cash'
+     AND payment_receipt_url IS NULL
+     AND created_at > now() - interval '2 hours';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'تعذر إرفاق الإيصال لهذا الطلب';
+  END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION attach_order_receipt(UUID, UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION attach_order_receipt(UUID, UUID, TEXT) TO anon, authenticated;
+
+-- (ج) دوال الـ triggers والدوال الداخلية مش لازم تكون قابلة للنداء من الـ API
+REVOKE ALL ON FUNCTION orders_guard_staff_update() FROM PUBLIC;
+REVOKE ALL ON FUNCTION orders_restock_on_cancel() FROM PUBLIC;
 
 NOTIFY pgrst, 'reload schema';
