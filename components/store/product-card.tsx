@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import { toast } from 'sonner';
 import Image from 'next/image';
 import { ShoppingBag } from 'lucide-react';
 import type { Product, ProductVariant } from '@/lib/types';
@@ -24,7 +25,8 @@ export function ProductCard({ product, isNew = false }: { product: Product; isNe
     e.preventDefault();
     e.stopPropagation();
     if (!inStockVariant) return;
-    addItem(product, inStockVariant, 1);
+    const result = addItem(product, inStockVariant, 1);
+    if (result.added === 0) toast.error('كل الكمية المتاحة من المنتج ده في سلتك');
   };
 
   return (

@@ -7,7 +7,7 @@ import {
   ShieldCheck, Truck, Eye, MessageCircle, Loader2, CheckCircle2, ArrowLeft,
   UserCircle2, Upload, Copy, Check, SkipForward, Camera,
 } from 'lucide-react';
-import { useCart } from '@/lib/cart-context';
+import { useCart, describeStockChanges } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
 import { priceEGP } from '@/lib/format';
 import { BRAND_CONFIG, PAYMENT_METHODS, DISABLED_PAYMENT_METHODS } from '@/lib/brand';
@@ -29,7 +29,7 @@ export function CheckoutForm({
   shippingRates: ShippingRate[];
   freeShippingThreshold: number | null;
 }) {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, refreshStock } = useCart();
   const { user, loading: authLoading } = useAuth();
 
   const [step, setStep] = useState<Step>('form');
@@ -79,6 +79,13 @@ export function CheckoutForm({
     [shippingRates, form.governorate]
   );
   const baseShippingFee = selectedRate?.cost_egp ?? 0;
+
+  // أول ما صفحة الدفع تفتح: نظبط السلة على المخزون الحقيقي
+  useEffect(() => {
+    refreshStock().then((changes) => {
+      if (changes.length > 0) toast.warning(describeStockChanges(changes), { duration: 8000 });
+    });
+  }, [refreshStock]);
 
   // مرة واحدة لما العميلة تفتح صفحة الدفع وفي سلتها منتجات
   const initiatedRef = useRef(false);
@@ -174,6 +181,15 @@ export function CheckoutForm({
         .single<{ order_id: string; order_number: number; total_amount_egp: number }>();
 
       if (orderError || !placed) {
+        // لو المشكلة في المخزون (حد سبقها على آخر قطعة)، بنظبط السلة تلقائي
+        // عشان تقدر تكمل باللي متاح
+        if (/(متوفر|متاح|المخزون)/.test(orderError?.message ?? '')) {
+          const changes = await refreshStock();
+          if (changes.length > 0) {
+            toast.error(`${orderError.message}\n${describeStockChanges(changes)}\nراجعي السلة وأكدي الطلب تاني.`, { duration: 9000 });
+            return;
+          }
+        }
         throw new Error(orderError?.message ?? 'تعذر إنشاء الطلب');
       }
       const order = { id: placed.order_id, order_number: placed.order_number };

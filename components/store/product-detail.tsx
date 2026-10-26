@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ShoppingBag, MessageCircle, Ruler, Check, ChevronLeft, ChevronRight, Truck, Eye, Sparkles, X, Maximize2, Plus } from 'lucide-react';
-import type { Product } from '@/lib/types';
+import type { Product, ProductVariant } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import { useCart } from '@/lib/cart-context';
 import { priceEGP, discountPercent } from '@/lib/format';
 import { BRAND_CONFIG, TURKISH_SIZE_GUIDE } from '@/lib/brand';
@@ -17,7 +18,25 @@ import { useRecordRecentlyViewed } from '@/lib/recently-viewed';
 import { track } from '@/lib/analytics';
 
 export function ProductDetail({ product, related }: { product: Product; related: Product[] }) {
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
+
+  // الصفحة متكاشة (ممكن تكون قديمة بدقيقة)، فبنجيب المخزون الحقيقي أول ما
+  // تفتح عشان العميلة متشوفش مقاس متاح وهو خلص.
+  const [variants, setVariants] = useState(product.variants ?? []);
+  useEffect(() => {
+    let active = true;
+    setVariants(product.variants ?? []);
+    supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', product.id)
+      .then(({ data }) => {
+        if (active && data) setVariants(data as ProductVariant[]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [product.id, product.variants]);
   const [activeImage, setActiveImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -55,29 +74,40 @@ export function ProductDetail({ product, related }: { product: Product; related:
   const effectivePrice = product.sale_price_egp ?? product.price_egp;
   const discount = discountPercent(product.price_egp, product.sale_price_egp);
 
-  const sizes = [...new Set(product.variants?.map((v) => v.size) ?? [])];
-  const colors = Array.from(new Map((product.variants ?? []).map((v) => [v.color_ar, v])).values());
+  const sizes = [...new Set(variants?.map((v) => v.size) ?? [])];
+  const colors = Array.from(new Map((variants ?? []).map((v) => [v.color_ar, v])).values());
 
-  const availableVariant = product.variants?.find(
+  const availableVariant = variants?.find(
     (v) => v.size === selectedSize && v.color_ar === selectedColor
   );
-  const inStock = availableVariant ? availableVariant.stock_quantity > 0 : false;
+  const stock = availableVariant?.stock_quantity ?? 0;
+  const inCart = items.find((i) => i.variant.id === availableVariant?.id)?.quantity ?? 0;
+  // المتاح للإضافة = المخزون - اللي في السلة أصلاً
+  const canAdd = Math.max(0, stock - inCart);
+  const inStock = stock > 0;
+
+  // لما المقاس/اللون يتغير، الكمية متعديش المتاح
+  useEffect(() => {
+    setQty((q) => Math.max(1, Math.min(q, canAdd || 1)));
+  }, [canAdd]);
 
   const handleAddToCart = () => {
     if (!selectedSize || !selectedColor) {
       toast.error('الرجاء اختيار المقاس واللون');
       return;
     }
-    if (!availableVariant || availableVariant.stock_quantity === 0) {
+    if (!availableVariant || !inStock) {
       toast.error('هذا المقاس واللون غير متوفر حالياً');
       return;
     }
-    if (qty > availableVariant.stock_quantity) {
-      toast.error(`الكمية المتاحة: ${availableVariant.stock_quantity}`);
-      return;
+    const result = addItem(product, availableVariant, qty);
+    if (result.added === 0) {
+      toast.error(`عندك ${result.inCart} في السلة، ودي كل الكمية المتاحة من المقاس ده`);
+    } else if (result.added < qty) {
+      toast.warning(`اتضاف ${result.added} بس - المتاح ${result.available} وكلهم دلوقتي في سلتك`);
+    } else {
+      toast.success('تمت الإضافة إلى السلة');
     }
-    addItem(product, availableVariant, qty);
-    toast.success('تمت الإضافة إلى السلة');
   };
 
   const buildWhatsAppMessage = () => {
@@ -213,8 +243,8 @@ export function ProductDetail({ product, related }: { product: Product; related:
                 </div>
                 <div className="flex flex-wrap gap-2.5">
                   {sizes.map((size) => {
-                    const variant = product.variants?.find((v) => v.size === size && v.color_ar === selectedColor);
-                    const available = variant ? variant.stock_quantity > 0 : product.variants?.some((v) => v.size === size && v.stock_quantity > 0);
+                    const variant = variants?.find((v) => v.size === size && v.color_ar === selectedColor);
+                    const available = variant ? variant.stock_quantity > 0 : variants?.some((v) => v.size === size && v.stock_quantity > 0);
                     return (
                       <button
                         key={size}
@@ -247,7 +277,8 @@ export function ProductDetail({ product, related }: { product: Product; related:
                 </button>
                 <span className="font-body w-12 text-center num-rtl">{qty}</span>
                 <button
-                  onClick={() => setQty((q) => Math.min(q + 1, availableVariant?.stock_quantity || 20))}
+                  onClick={() => setQty((q) => Math.min(q + 1, Math.max(1, canAdd)))}
+                  disabled={!!availableVariant && qty >= canAdd}
                   className="px-4 py-2.5 hover:bg-muted transition-colors font-body"
                   aria-label="زيادة"
                 >
@@ -259,7 +290,17 @@ export function ProductDetail({ product, related }: { product: Product; related:
             {/* Stock status */}
             {selectedSize && selectedColor && (
               <div className="mb-6">
-                {inStock ? (
+                {inStock && canAdd === 0 ? (
+                  <span className="inline-flex items-center gap-2 font-arabic text-sm text-foreground/70">
+                    <Check className="w-4 h-4" strokeWidth={2} />
+                    كل الكمية المتاحة ({stock}) في سلتك
+                  </span>
+                ) : inStock && stock <= 3 ? (
+                  <span className="inline-flex items-center gap-2 font-arabic text-sm text-accent">
+                    <Check className="w-4 h-4" strokeWidth={2} />
+                    {stock === 1 ? 'آخر قطعة متاحة' : `متبقي ${stock} قطع فقط`}
+                  </span>
+                ) : inStock ? (
                   <span className="inline-flex items-center gap-2 font-arabic text-sm text-success">
                     <Check className="w-4 h-4" strokeWidth={2} />
                     متوفر — جاهز للشحن

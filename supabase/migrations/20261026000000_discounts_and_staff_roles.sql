@@ -466,7 +466,10 @@ BEGIN
       RAISE EXCEPTION 'منتج في السلة لم يعد متاحاً، برجاء تحديث السلة';
     END IF;
     IF coalesce(v_variant.stock_quantity, 0) < v_qty THEN
-      RAISE EXCEPTION 'الكمية المطلوبة من أحد المنتجات غير متوفرة حالياً';
+      IF coalesce(v_variant.stock_quantity, 0) = 0 THEN
+        RAISE EXCEPTION '% (% - مقاس %) نفد من المخزون', v_variant.title_ar, v_variant.color_ar, v_variant.size;
+      END IF;
+      RAISE EXCEPTION 'متاح % بس من % (% - مقاس %)', v_variant.stock_quantity, v_variant.title_ar, v_variant.color_ar, v_variant.size;
     END IF;
 
     UPDATE product_variants SET stock_quantity = stock_quantity - v_qty WHERE id = v_variant.id;

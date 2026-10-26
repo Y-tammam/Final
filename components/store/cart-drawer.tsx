@@ -3,13 +3,23 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { X, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
-import { useCart } from '@/lib/cart-context';
+import { useEffect } from 'react';
+import { toast } from 'sonner';
+import { useCart, describeStockChanges } from '@/lib/cart-context';
 import { priceEGP } from '@/lib/format';
 import { FreeShippingProgress } from '@/components/store/free-shipping-progress';
 import { cn } from '@/lib/utils';
 
 export function CartDrawer({ freeShippingThreshold }: { freeShippingThreshold: number | null }) {
-  const { items, isOpen, setIsOpen, removeItem, updateQuantity, subtotal, totalItems } = useCart();
+  const { items, isOpen, setIsOpen, removeItem, updateQuantity, refreshStock, subtotal, totalItems } = useCart();
+
+  // كل ما السلة تتفتح بنتأكد من المخزون الحقيقي (ممكن حد تاني اشترى)
+  useEffect(() => {
+    if (!isOpen) return;
+    refreshStock().then((changes) => {
+      if (changes.length > 0) toast.warning(describeStockChanges(changes), { duration: 7000 });
+    });
+  }, [isOpen, refreshStock]);
 
   return (
     <div className={cn('fixed inset-0 z-[70]', !isOpen && 'pointer-events-none')}>
@@ -69,6 +79,13 @@ export function CartDrawer({ freeShippingThreshold }: { freeShippingThreshold: n
                     <p className="font-arabic text-xs text-muted-foreground mt-0.5">
                       {item.variant.color_ar} • مقاس {item.variant.size}
                     </p>
+                    {item.variant.stock_quantity <= 3 && (
+                      <p className="font-arabic text-[11px] text-accent mt-0.5">
+                        {item.quantity >= item.variant.stock_quantity
+                          ? 'دي كل الكمية المتاحة'
+                          : `متبقي ${item.variant.stock_quantity} فقط`}
+                      </p>
+                    )}
                     <p className="font-body text-sm font-semibold mt-1 num-rtl">
                       {priceEGP(item.product.sale_price_egp ?? item.product.price_egp)} ج.م
                     </p>
