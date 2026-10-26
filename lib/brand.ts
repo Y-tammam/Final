@@ -23,7 +23,6 @@ export const BRAND_CONFIG = {
     instagram: "@soraia.eg",
     supportEmail: "support@brandplaceholder.com",
   },
-  adminEmail: "ttghnghylla@gmail.com",
   freeShippingThreshold: 3000,
   // بيانات التحويل بفودافون كاش اللي بتظهر للعميلة بعد تأكيد الطلب لو
   // اختارت الدفع بفودافون كاش. غيّري الرقم والاسم دول برقمك الحقيقي.

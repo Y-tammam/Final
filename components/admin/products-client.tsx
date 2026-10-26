@@ -342,20 +342,42 @@ const handleAddCategory = async () => {
         const { data, error } = await supabase.from('products').update(payload).eq('id', product.id).select('*, category:categories(*), variants:product_variants(*)').single();
         if (error) throw error;
 
-        await supabase.from('product_variants').delete().eq('product_id', product.id);
-        const variantsToInsert = variants.map((v) => ({
-          product_id: product.id,
-          size: v.size,
-          color_ar: v.color_ar,
-          color_hex: v.color_hex || null,
-          stock_quantity: v.stock_quantity,
-          sku: v.sku || null,
-        }));
-        if (variantsToInsert.length > 0) {
-          const { data: newVariants, error: vErr } = await supabase.from('product_variants').insert(variantsToInsert).select('*');
-          if (vErr) throw vErr;
-          if (newVariants) data.variants = newVariants;
+        // قبل كده كنا بنمسح كل المقاسات/الألوان ونضيفها من جديد مع كل تعديل،
+        // وده كان بيضيّع المقاس واللون من الطلبات القديمة، وبيلغي أي منتج
+        // في سلة العملاء، وبيرجّع المخزون للرقم اللي كان وقت فتح الفورم.
+        // دلوقتي: بنحدّث الموجود، ونضيف الجديد، ونمسح اللي اتشال بس، والمخزون
+        // بيتعدّل بالفرق (adjust_variant_stock) عشان المبيعات اللي حصلت
+        // والفورم مفتوح متضيعش.
+        const original = new Map((product.variants ?? []).map((v) => [v.id, v]));
+        const keptIds = new Set(variants.filter((v) => v.id).map((v) => v.id));
+        const removedIds = Array.from(original.keys()).filter((id) => !keptIds.has(id));
+
+        if (removedIds.length > 0) {
+          const { error: delErr } = await supabase.from('product_variants').delete().in('id', removedIds);
+          if (delErr) throw delErr;
         }
+
+        for (const v of variants) {
+          const fields = { size: v.size, color_ar: v.color_ar, color_hex: v.color_hex || null, sku: v.sku || null };
+          const before = v.id ? original.get(v.id) : undefined;
+          if (before) {
+            const { error: upErr } = await supabase.from('product_variants').update(fields).eq('id', v.id);
+            if (upErr) throw upErr;
+            const delta = v.stock_quantity - before.stock_quantity;
+            if (delta !== 0) {
+              const { error: stockErr } = await supabase.rpc('adjust_variant_stock', { p_variant_id: v.id, p_delta: delta });
+              if (stockErr) throw stockErr;
+            }
+          } else {
+            const { error: insErr } = await supabase
+              .from('product_variants')
+              .insert({ ...fields, product_id: product.id, stock_quantity: v.stock_quantity });
+            if (insErr) throw insErr;
+          }
+        }
+
+        const { data: freshVariants } = await supabase.from('product_variants').select('*').eq('product_id', product.id);
+        data.variants = freshVariants ?? [];
         onSave(data as Product);
         toast.success('تم تحديث المنتج');
       } else {

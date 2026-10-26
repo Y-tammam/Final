@@ -66,6 +66,9 @@ export type OrderItem = {
   variant_id: string | null;
   quantity: number;
   unit_price_egp: number;
+  product_title: string | null;
+  variant_size: string | null;
+  variant_color: string | null;
   product?: Product;
   variant?: ProductVariant;
 };

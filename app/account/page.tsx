@@ -315,10 +315,10 @@ export default function AccountPage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="truncate">{item.product?.title_ar ?? 'منتج غير متاح'}</p>
+                              <p className="truncate">{item.product_title ?? item.product?.title_ar ?? 'منتج غير متاح'}</p>
                               <p className="text-xs text-muted-foreground">
-                                {item.variant?.size ? `مقاس ${item.variant.size}` : ''}
-                                {item.variant?.color_ar ? ` • ${item.variant.color_ar}` : ''}
+                                {(item.variant_size ?? item.variant?.size) ? `مقاس ${item.variant_size ?? item.variant?.size}` : ''}
+                                {(item.variant_color ?? item.variant?.color_ar) ? ` • ${item.variant_color ?? item.variant?.color_ar}` : ''}
                                 {' • '}الكمية: {item.quantity}
                               </p>
                             </div>

@@ -67,25 +67,34 @@ export async function getDashboardStats() {
   };
 }
 
-export async function getAllOrders(): Promise<Order[]> {
+// كل أعمدة الطلب ما عدا payment_receipt_url (صورة الإيصال - ممكن تكون مئات
+// الكيلوبايتات لكل طلب، وكانت بتتحمل كلها مع القايمة). الإيصال بيتجاب لما
+// الطلب يتفتح (components/admin/orders-client.tsx).
+const ORDER_LIST_COLUMNS =
+  'id, order_number, customer_name, customer_phone, whatsapp_phone, governorate, city_address, ' +
+  'subtotal_egp, shipping_fee_egp, total_amount_egp, discount_code, discount_egp, payment_method, ' +
+  'order_status, allow_inspection, notes, created_at';
+
+export async function getAllOrders(limit = 500): Promise<Order[]> {
   const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items:order_items(*, product:products(*), variant:product_variants(*))')
-    .order('created_at', { ascending: false });
+    .select(`${ORDER_LIST_COLUMNS}, order_items:order_items(*, product:products(id, title_ar, images, slug), variant:product_variants(*))`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
   if (error) return [];
-  return (data ?? []) as Order[];
+  return (data ?? []) as unknown as Order[];
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {
   const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items:order_items(*, product:products(*), variant:product_variants(*))')
+    .select(`${ORDER_LIST_COLUMNS}, payment_receipt_url, order_items:order_items(*, product:products(id, title_ar, images, slug), variant:product_variants(*))`)
     .eq('id', id)
     .maybeSingle();
   if (error || !data) return null;
-  return data as Order;
+  return data as unknown as Order;
 }
 
 export async function getAllProductsAdmin(): Promise<Product[]> {

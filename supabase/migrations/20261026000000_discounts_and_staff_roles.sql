@@ -23,6 +23,17 @@
 - لما حالة الطلب تتغير لـ "ملغي" المخزون بيرجع تلقائي (ولو رجعت تاني من
   ملغي لحالة تانية المخزون بيتخصم تاني).
 
+## تقوية أمنية إضافية (من مراجعة الأمان)
+- حد أقصى 20 قطعة في الطلب الواحد، وحد 10 طلبات في الساعة لكل IP (غير حد
+  الـ 5 لكل رقم)، وقفل بيمنع الطلبات المتوازية تعدّي الحد.
+- order_items بقت بتحفظ اسم المنتج والمقاس واللون وقت الطلب، فتعديل أو
+  حذف المنتج بعد كده مبيضيّعش تفاصيل الطلبات القديمة.
+- العميلة تقدر تشوف منتجات طلباتها في صفحة حسابها.
+- مقاسات/ألوان المنتجات المسودة مبقتش ظاهرة للعامة.
+- إيصال فودافون كاش: صور webp/jpeg/png بس وحجم أقصى أصغر.
+- تعديل المنتج مبقاش بيمسح المقاسات ويضيفها من جديد، والمخزون بيتعدّل
+  بالفرق (adjust_variant_stock).
+
 ## التشغيل
 شغّلي الملف ده في Supabase SQL Editor بعد ملف 20261020000000. آمن يتشغل
 أكتر من مرة.
@@ -208,6 +219,26 @@ DROP POLICY IF EXISTS "admin_all_discount_codes" ON discount_codes;
 CREATE POLICY "admin_all_discount_codes" ON discount_codes FOR ALL
   TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_ip TEXT;
+CREATE INDEX IF NOT EXISTS idx_orders_ip_created ON orders(client_ip, created_at DESC) WHERE client_ip IS NOT NULL;
+
+-- نسخة من بيانات المنتج وقت الطلب (عشان تعديل المنتج بعدين ميأثرش على الطلب)
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_title TEXT;
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_size TEXT;
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_color TEXT;
+
+-- العميلة تقرا عناصر طلباتها هي بس (صفحة حسابي)
+DROP POLICY IF EXISTS "customer_read_own_order_items" ON order_items;
+CREATE POLICY "customer_read_own_order_items" ON order_items FOR SELECT
+  TO authenticated
+  USING (EXISTS (SELECT 1 FROM orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
+
+-- مقاسات/ألوان المنتجات المسودة مش للعامة
+DROP POLICY IF EXISTS "anon_read_variants" ON product_variants;
+CREATE POLICY "anon_read_variants" ON product_variants FOR SELECT
+  TO anon, authenticated
+  USING (EXISTS (SELECT 1 FROM products p WHERE p.id = product_id AND (p.status = 'active' OR is_staff())));
+
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_code TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_egp NUMERIC(10,2) NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_orders_discount_phone ON orders(discount_code, customer_phone) WHERE discount_code IS NOT NULL;
@@ -311,7 +342,17 @@ DECLARE
   v_item JSONB;
   v_qty INT;
   v_variant RECORD;
+  v_total_qty INT;
+  v_headers JSON := nullif(current_setting('request.headers', true), '')::JSON;
+  v_ip TEXT;
 BEGIN
+  -- IP العميلة (Supabase بيمرر هيدرز الطلب للدالة)
+  v_ip := coalesce(
+    v_headers->>'cf-connecting-ip',
+    trim(split_part(coalesce(v_headers->>'x-forwarded-for', ''), ',', 1))
+  );
+  v_ip := nullif(left(v_ip, 64), '');
+
   IF length(trim(coalesce(p_customer_name, ''))) NOT BETWEEN 2 AND 100 THEN
     RAISE EXCEPTION 'الرجاء إدخال الاسم';
   END IF;
@@ -333,9 +374,25 @@ BEGIN
     RAISE EXCEPTION 'سلتك فارغة';
   END IF;
 
+  SELECT coalesce(sum((e->>'quantity')::INT), 0) INTO v_total_qty FROM jsonb_array_elements(p_items) e;
+  IF v_total_qty > 20 THEN
+    RAISE EXCEPTION 'الحد الأقصى 20 قطعة في الطلب الواحد - للطلبات الأكبر تواصلي معنا على واتساب';
+  END IF;
+
+  -- قفل على الرقم والـ IP لحد آخر العملية: طلبات متوازية من نفس المصدر
+  -- بتستنى بعض، فمتقدرش تعدّي الحد مع بعض.
+  PERFORM pg_advisory_xact_lock(hashtext('order-phone:' || v_phone));
+  IF v_ip IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(hashtext('order-ip:' || v_ip));
+  END IF;
+
   IF (SELECT count(*) FROM orders o
       WHERE o.customer_phone = v_phone AND o.created_at > now() - interval '1 hour') >= 5 THEN
     RAISE EXCEPTION 'عدد كبير من الطلبات من نفس الرقم، برجاء المحاولة بعد قليل أو التواصل معنا على واتساب';
+  END IF;
+  IF v_ip IS NOT NULL AND (SELECT count(*) FROM orders o
+      WHERE o.client_ip = v_ip AND o.created_at > now() - interval '1 hour') >= 10 THEN
+    RAISE EXCEPTION 'عدد كبير من الطلبات، برجاء المحاولة بعد قليل أو التواصل معنا على واتساب';
   END IF;
 
   SELECT s.cost_egp INTO v_shipping FROM shipping_rates s WHERE s.governorate_ar = p_governorate;
@@ -344,23 +401,25 @@ BEGIN
   END IF;
 
   INSERT INTO orders (
-    user_id, customer_name, customer_phone, whatsapp_phone, governorate, city_address,
+    client_ip, user_id, customer_name, customer_phone, whatsapp_phone, governorate, city_address,
     subtotal_egp, shipping_fee_egp, total_amount_egp, payment_method, order_status,
     allow_inspection, notes
   ) VALUES (
-    auth.uid(), trim(p_customer_name), v_phone, nullif(trim(coalesce(p_whatsapp_phone, '')), ''),
+    v_ip, auth.uid(), trim(p_customer_name), v_phone, nullif(trim(coalesce(p_whatsapp_phone, '')), ''),
     p_governorate, trim(p_city_address), 0, v_shipping, 0, p_payment_method, 'pending',
     coalesce(p_allow_inspection, true), nullif(trim(coalesce(p_notes, '')), '')
   )
   RETURNING id, orders.order_number INTO v_order_id, v_order_number;
 
-  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
+  -- بالترتيب حسب variant_id: طلبين فيهم نفس المنتجات بيقفلوا الصفوف بنفس
+  -- الترتيب، فمفيش deadlock.
+  FOR v_item IN SELECT value FROM jsonb_array_elements(p_items) ORDER BY value->>'variant_id' LOOP
     v_qty := (v_item->>'quantity')::INT;
     IF v_qty IS NULL OR v_qty < 1 OR v_qty > 20 THEN
       RAISE EXCEPTION 'كمية غير صحيحة';
     END IF;
 
-    SELECT pv.id, pv.product_id, pv.stock_quantity,
+    SELECT pv.id, pv.product_id, pv.stock_quantity, pv.size, pv.color_ar, p.title_ar,
            coalesce(p.sale_price_egp, p.price_egp) AS unit_price
       INTO v_variant
       FROM product_variants pv
@@ -378,8 +437,12 @@ BEGIN
 
     UPDATE product_variants SET stock_quantity = stock_quantity - v_qty WHERE id = v_variant.id;
 
-    INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price_egp)
-    VALUES (v_order_id, v_variant.product_id, v_variant.id, v_qty, v_variant.unit_price);
+    INSERT INTO order_items (
+      order_id, product_id, variant_id, quantity, unit_price_egp, product_title, variant_size, variant_color
+    ) VALUES (
+      v_order_id, v_variant.product_id, v_variant.id, v_qty, v_variant.unit_price,
+      v_variant.title_ar, v_variant.size, v_variant.color_ar
+    );
 
     v_subtotal := v_subtotal + v_variant.unit_price * v_qty;
   END LOOP;
@@ -404,6 +467,61 @@ $$;
 
 REVOKE ALL ON FUNCTION place_order(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, JSONB, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION place_order(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, JSONB, TEXT) TO anon, authenticated;
+
+-- ---------- attach_order_receipt (أشد) ----------
+CREATE OR REPLACE FUNCTION attach_order_receipt(p_order_id UUID, p_receipt TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- صور raster بس (مش SVG اللي ممكن يكون فيها سكريبت)، وحجم أقصى ~450KB
+  IF p_receipt IS NULL OR length(p_receipt) > 600000
+     OR p_receipt !~ '^data:image/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$' THEN
+    RAISE EXCEPTION 'صورة الإيصال غير صالحة';
+  END IF;
+
+  UPDATE orders
+     SET payment_receipt_url = p_receipt
+   WHERE id = p_order_id
+     AND payment_method = 'Vodafone Cash'
+     AND payment_receipt_url IS NULL
+     AND created_at > now() - interval '2 hours';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'تعذر إرفاق الإيصال لهذا الطلب';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION attach_order_receipt(UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION attach_order_receipt(UUID, TEXT) TO anon, authenticated;
+
+-- ---------- تعديل المخزون بالفرق (لوحة التحكم) ----------
+-- بدل ما الفورم يكتب رقم المخزون كله (ويمسح المبيعات اللي حصلت وهو مفتوح)،
+-- بيبعت الفرق بس: +5 أو -2.
+CREATE OR REPLACE FUNCTION adjust_variant_stock(p_variant_id UUID, p_delta INT)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_stock INT;
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'غير مصرح';
+  END IF;
+  UPDATE product_variants
+     SET stock_quantity = greatest(0, coalesce(stock_quantity, 0) + p_delta)
+   WHERE id = p_variant_id
+  RETURNING stock_quantity INTO v_stock;
+  RETURN v_stock;
+END;
+$$;
+REVOKE ALL ON FUNCTION adjust_variant_stock(UUID, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION adjust_variant_stock(UUID, INT) TO authenticated;
 
 -- =====================================================================
 -- إلغاء الطلب بيرجّع المخزون

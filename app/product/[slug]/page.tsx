@@ -16,8 +16,11 @@ export function generateStaticParams() {
 
 // عنوان وصورة خاصين بكل منتج: بيظهروا في نتايج جوجل وفي معاينة الرابط لما
 // يتشارك على واتساب/فيسبوك أو يتحط في إعلان.
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const product = await getProductBySlug(params.slug);
+type PageProps = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
   if (!product) return {};
   const description = product.description_ar?.slice(0, 160) || undefined;
   return {
@@ -31,8 +34,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function ProductPage({ params }: { params: { slug: string } }) {
-  const product = await getProductBySlug(params.slug);
+export default async function ProductPage({ params }: PageProps) {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
   if (!product) notFound();
 
   const related = await getRelatedProducts(product, 4);
