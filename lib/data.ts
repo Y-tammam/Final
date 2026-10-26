@@ -1,5 +1,5 @@
 import { supabasePublic as supabase } from './supabase-public';
-import type { Product, Category, ShippingRate } from './types';
+import type { Product, Category, ShippingRate, StoreSettings } from './types';
 
 // كل الدوال هنا للمتجر العام بس (مفيش كوكيز) عشان الصفحات تتكاش.
 // بيانات الأدمن في lib/admin-data.ts وبتستخدم supabaseServer().
@@ -91,4 +91,11 @@ export async function getShippingRates(): Promise<ShippingRate[]> {
   const { data, error } = await supabase.from('shipping_rates').select('*').order('governorate_ar');
   if (error) return [];
   return data ?? [];
+}
+
+// إعدادات عامة للمتجر (حد الشحن المجاني). بتتعدّل من صفحة الشحن في لوحة
+// التحكم، و place_order بيطبقها على السيرفر.
+export async function getStoreSettings(): Promise<StoreSettings> {
+  const { data } = await supabase.from('store_settings').select('free_shipping_threshold_egp').maybeSingle();
+  return { free_shipping_threshold_egp: data?.free_shipping_threshold_egp ?? null };
 }

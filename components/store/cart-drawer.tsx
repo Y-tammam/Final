@@ -5,10 +5,10 @@ import Image from 'next/image';
 import { X, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { priceEGP } from '@/lib/format';
-import { BRAND_CONFIG } from '@/lib/brand';
+import { FreeShippingProgress } from '@/components/store/free-shipping-progress';
 import { cn } from '@/lib/utils';
 
-export function CartDrawer() {
+export function CartDrawer({ freeShippingThreshold }: { freeShippingThreshold: number | null }) {
   const { items, isOpen, setIsOpen, removeItem, updateQuantity, subtotal, totalItems } = useCart();
 
   return (
@@ -101,6 +101,7 @@ export function CartDrawer() {
         {/* footer */}
         {items.length > 0 && (
           <div className="border-t border-border px-6 py-5 space-y-4">
+            <FreeShippingProgress subtotal={subtotal} threshold={freeShippingThreshold} />
             <div className="flex items-center justify-between">
               <span className="font-arabic text-muted-foreground">المجموع الفرعي</span>
               <span className="font-body text-xl font-semibold num-rtl">{priceEGP(subtotal)} ج.م</span>
@@ -109,7 +110,7 @@ export function CartDrawer() {
             <Link
               href="/checkout"
               onClick={() => setIsOpen(false)}
-              className="block w-full bg-foreground text-primary-foreground font-arabic text-center py-3.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all duration-400"
+              className="block w-full bg-foreground text-primary-foreground font-arabic text-center py-3.5 rounded-sm hover:bg-foreground/85 transition-all duration-400"
             >
               إتمام الطلب
             </Link>

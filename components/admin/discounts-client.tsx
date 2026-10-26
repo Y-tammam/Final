@@ -176,7 +176,7 @@ export function DiscountsClient({ codes }: { codes: DiscountCode[] }) {
           <button
             onClick={handleAdd}
             disabled={adding}
-            className="font-arabic bg-foreground text-primary-foreground px-6 py-2.5 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+            className="font-arabic bg-foreground text-primary-foreground px-6 py-2.5 rounded-sm text-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
           >
             {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             إنشاء الكود

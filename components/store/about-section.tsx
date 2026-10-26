@@ -11,7 +11,7 @@ const FEATURES = [
 
 export function AboutSection() {
   return (
-    <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+    <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-36">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
         <div className="relative aspect-[4/5] overflow-hidden rounded-sm order-2 lg:order-1">
           <Image
@@ -25,7 +25,7 @@ export function AboutSection() {
 
         <div className="order-1 lg:order-2">
           <span className="font-body text-xs tracking-[0.3em] uppercase text-accent">Our Story</span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mt-2 mb-6">
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-medium mt-2 mb-6">
             فخامة تركية بأناقة مصرية
           </h2>
           <p className="font-arabic text-muted-foreground leading-relaxed text-base mb-8">

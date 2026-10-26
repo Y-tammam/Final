@@ -7,14 +7,14 @@ export function NewArrivals({ products }: { products: Product[] }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-36">
       <div className="flex items-end justify-between mb-12">
         <div>
           <span className="font-body text-xs tracking-[0.3em] uppercase text-accent flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} />
             New Arrivals
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mt-2">وصلنا حديثاً</h2>
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-medium mt-2">وصلنا حديثاً</h2>
           <p className="font-arabic text-muted-foreground mt-3 max-w-md">أحدث القطع اللي وصلت للمتجر، كوني أول من تقتنيها</p>
         </div>
         <Link href="/shop" className="hidden sm:flex items-center gap-2 font-arabic text-sm text-foreground/70 hover:text-accent transition-colors group">

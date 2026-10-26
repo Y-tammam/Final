@@ -34,6 +34,11 @@
 - تعديل المنتج مبقاش بيمسح المقاسات ويضيفها من جديد، والمخزون بيتعدّل
   بالفرق (adjust_variant_stock).
 
+## الشحن المجاني
+- جدول store_settings (صف واحد): free_shipping_threshold_egp. لو قيمة
+  المنتجات بعد الخصم وصلت الرقم ده الشحن بيبقى مجاني (place_order بيطبقه).
+  بيتعدّل من صفحة الشحن في لوحة التحكم، و NULL = مفيش شحن مجاني.
+
 ## التشغيل
 شغّلي الملف ده في Supabase SQL Editor بعد ملف 20261020000000. آمن يتشغل
 أكتر من مرة.
@@ -191,6 +196,25 @@ REVOKE ALL ON FUNCTION remove_staff_member(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION list_staff() TO authenticated;
 GRANT EXECUTE ON FUNCTION set_staff_member(TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION remove_staff_member(UUID) TO authenticated;
+
+-- =====================================================================
+-- إعدادات المتجر (صف واحد)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS store_settings (
+  id BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
+  free_shipping_threshold_egp NUMERIC(10,2) CHECK (free_shipping_threshold_egp IS NULL OR free_shipping_threshold_egp > 0),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO store_settings (id, free_shipping_threshold_egp) VALUES (true, 3000)
+ON CONFLICT (id) DO NOTHING;
+ALTER TABLE store_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "public_read_store_settings" ON store_settings;
+CREATE POLICY "public_read_store_settings" ON store_settings FOR SELECT
+  TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "admin_update_store_settings" ON store_settings;
+CREATE POLICY "admin_update_store_settings" ON store_settings FOR UPDATE
+  TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 
 -- =====================================================================
 -- أكواد الخصم
@@ -454,8 +478,14 @@ BEGIN
     UPDATE discount_codes SET used_count = used_count + 1 WHERE id = v_code.id;
   END IF;
 
+  -- شحن مجاني لو قيمة المنتجات بعد الخصم وصلت الحد
+  IF (SELECT st.free_shipping_threshold_egp FROM store_settings st LIMIT 1) <= v_subtotal - v_discount THEN
+    v_shipping := 0;
+  END IF;
+
   UPDATE orders
      SET subtotal_egp = v_subtotal,
+         shipping_fee_egp = v_shipping,
          discount_code = v_code.code,
          discount_egp = v_discount,
          total_amount_egp = v_subtotal - v_discount + v_shipping

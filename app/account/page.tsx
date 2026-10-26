@@ -213,7 +213,7 @@ export default function AccountPage() {
               <button
                 onClick={handleSaveProfile}
                 disabled={savingProfile}
-                className="inline-flex items-center gap-2 bg-foreground text-primary-foreground px-5 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-60"
+                className="inline-flex items-center gap-2 bg-foreground text-primary-foreground px-5 py-2 rounded-sm text-sm hover:bg-foreground/85 transition-all disabled:opacity-60"
               >
                 {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 حفظ
@@ -256,7 +256,7 @@ export default function AccountPage() {
             <p className="text-xs text-muted-foreground mb-6">استكشفي أحدث مجموعاتنا وتسوقي الآن</p>
             <Link
               href="/shop"
-              className="inline-block bg-foreground text-primary-foreground text-sm px-6 py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all"
+              className="inline-block bg-foreground text-primary-foreground text-sm px-6 py-2.5 rounded-sm hover:bg-foreground/85 transition-all"
             >
               تصفحي المتجر
             </Link>

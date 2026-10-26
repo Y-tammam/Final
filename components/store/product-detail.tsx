@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ShoppingBag, MessageCircle, Ruler, Check, ChevronLeft, Truck, Eye, Sparkles, X } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Ruler, Check, ChevronLeft, ChevronRight, Truck, Eye, Sparkles, X, Maximize2, Plus } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
 import { priceEGP, discountPercent } from '@/lib/format';
@@ -11,6 +11,10 @@ import { BRAND_CONFIG, TURKISH_SIZE_GUIDE } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ProductCard } from './product-card';
+import { WishlistButton } from './wishlist-button';
+import { RecentlyViewed } from './recently-viewed';
+import { useRecordRecentlyViewed } from '@/lib/recently-viewed';
+import { track } from '@/lib/analytics';
 
 export function ProductDetail({ product, related }: { product: Product; related: Product[] }) {
   const { addItem } = useCart();
@@ -19,6 +23,34 @@ export function ProductDetail({ product, related }: { product: Product; related:
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
+  useRecordRecentlyViewed(product);
+  useEffect(() => {
+    track('ViewContent', {
+      content_ids: [product.id],
+      content_type: 'product',
+      content_name: product.title_ar,
+      value: product.sale_price_egp ?? product.price_egp,
+    });
+  }, [product.id, product.title_ar, product.sale_price_egp, product.price_egp]);
+
+  const imageCount = product.images.length;
+  const showImage = (i: number) => setActiveImage((i + imageCount) % imageCount);
+
+  // سحب الصورة يمين/شمال على الموبايل بيقلّب بين الصور
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || imageCount < 2) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 50) return;
+    // الصفحة RTL: السحب لليمين = الصورة اللي بعدها
+    showImage(activeImage + (dx > 0 ? 1 : -1));
+  };
 
   const effectivePrice = product.sale_price_egp ?? product.price_egp;
   const discount = discountPercent(product.price_egp, product.sale_price_egp);
@@ -86,7 +118,12 @@ export function ProductDetail({ product, related }: { product: Product; related:
               </div>
             )}
             {/* Main image */}
-            <div className="relative flex-1 aspect-[3/4] overflow-hidden rounded-sm bg-muted">
+            <div
+              className="relative flex-1 aspect-[3/4] overflow-hidden rounded-sm bg-muted group cursor-zoom-in"
+              onClick={() => setZoomOpen(true)}
+              onTouchStart={onTouchStart}
+              onTouchEnd={onTouchEnd}
+            >
               {product.images[activeImage] && (
                 <Image
                   src={product.images[activeImage]}
@@ -94,13 +131,23 @@ export function ProductDetail({ product, related }: { product: Product; related:
                   fill
                   priority
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
+                  className="object-cover transition-transform duration-700 ease-luxury lg:group-hover:scale-[1.03]"
                 />
               )}
               {discount && (
-                <span className="absolute top-4 right-4 bg-destructive text-destructive-foreground text-xs font-bold px-3 py-1.5 rounded-sm">
+                <span className="absolute top-4 right-4 bg-background/90 text-foreground font-body text-xs tracking-wider px-2.5 py-1 num-rtl">
                   -{discount}%
                 </span>
+              )}
+              <span className="absolute bottom-4 left-4 w-9 h-9 bg-background/85 flex items-center justify-center" aria-hidden="true">
+                <Maximize2 className="w-4 h-4" strokeWidth={1.5} />
+              </span>
+              {imageCount > 1 && (
+                <div className="lg:hidden absolute bottom-4 inset-x-0 flex justify-center gap-1.5">
+                  {product.images.map((_, i) => (
+                    <span key={i} className={cn('h-1 rounded-full transition-all', i === activeImage ? 'w-5 bg-foreground' : 'w-1.5 bg-foreground/30')} />
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -112,10 +159,10 @@ export function ProductDetail({ product, related }: { product: Product; related:
                 {product.category.name_ar}
               </Link>
             )}
-            <h1 className="font-display text-3xl sm:text-4xl font-semibold mt-2 mb-3">{product.title_ar}</h1>
+            <h1 className="font-display text-3xl sm:text-4xl font-medium leading-tight mt-2 mb-3">{product.title_ar}</h1>
 
             <div className="flex items-center gap-3 mb-6">
-              <span className="font-body text-2xl font-semibold num-rtl">{priceEGP(effectivePrice)} ج.م</span>
+              <span className="font-body text-2xl font-normal num-rtl">{priceEGP(effectivePrice)} ج.م</span>
               {discount && (
                 <span className="font-body text-lg text-muted-foreground line-through num-rtl">
                   {priceEGP(product.price_egp)}
@@ -123,17 +170,6 @@ export function ProductDetail({ product, related }: { product: Product; related:
               )}
             </div>
 
-            <p className="font-arabic text-muted-foreground leading-relaxed mb-6">
-              {product.description_ar}
-            </p>
-
-            {/* Fabric */}
-            {product.fabric_details_ar && (
-              <div className="flex items-center gap-2 mb-6 bg-secondary/50 rounded-sm px-4 py-3">
-                <Sparkles className="w-4 h-4 text-accent shrink-0" strokeWidth={1.5} />
-                <span className="font-arabic text-sm text-foreground/80">الخامة: {product.fabric_details_ar}</span>
-              </div>
-            )}
 
             {/* Color selection */}
             {colors.length > 0 && (
@@ -211,7 +247,7 @@ export function ProductDetail({ product, related }: { product: Product; related:
                 </button>
                 <span className="font-body w-12 text-center num-rtl">{qty}</span>
                 <button
-                  onClick={() => setQty((q) => q + 1)}
+                  onClick={() => setQty((q) => Math.min(q + 1, availableVariant?.stock_quantity || 20))}
                   className="px-4 py-2.5 hover:bg-muted transition-colors font-body"
                   aria-label="زيادة"
                 >
@@ -241,11 +277,12 @@ export function ProductDetail({ product, related }: { product: Product; related:
             <div className="hidden sm:flex flex-col gap-3 mb-6">
               <button
                 onClick={handleAddToCart}
-                className="w-full bg-foreground text-primary-foreground font-arabic py-4 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all duration-400 flex items-center justify-center gap-2"
+                className="w-full bg-foreground text-primary-foreground font-arabic py-4 rounded-sm hover:bg-foreground/85 transition-all duration-400 flex items-center justify-center gap-2"
               >
                 <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
                 أضيفي إلى السلة
               </button>
+              <WishlistButton product={product} variant="full" />
               <a
                 href={buildWhatsAppMessage()}
                 target="_blank"
@@ -272,6 +309,35 @@ export function ProductDetail({ product, related }: { product: Product; related:
                 <span className="font-arabic text-xs text-foreground/70">خامة تركية فاخرة</span>
               </div>
             </div>
+
+            {/* تفاصيل المنتج - أكورديون (details/summary من غير JS) */}
+            <div className="mt-8 border-t border-border">
+              <AccordionItem title="تفاصيل المنتج" defaultOpen>
+                {product.description_ar && <p className="whitespace-pre-line">{product.description_ar}</p>}
+                {product.fabric_details_ar && (
+                  <p className="flex items-center gap-2 mt-3">
+                    <Sparkles className="w-4 h-4 text-accent shrink-0" strokeWidth={1.5} />
+                    الخامة: {product.fabric_details_ar}
+                  </p>
+                )}
+                {product.is_turkish_import && <p className="mt-3">صناعة تركية أصلية</p>}
+              </AccordionItem>
+              <AccordionItem title="المقاس والقياس">
+                <p>المقاسات تركية. لو مترددة بين مقاسين، ننصح بالمقاس الأكبر للعبايات والفساتين الواسعة.</p>
+                <button onClick={() => setSizeGuideOpen(true)} className="mt-3 inline-flex items-center gap-1.5 text-foreground underline underline-offset-4">
+                  <Ruler className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  افتحي جدول المقاسات
+                </button>
+              </AccordionItem>
+              <AccordionItem title="التوصيل والدفع">
+                <ul className="space-y-2">
+                  <li>التوصيل لكل محافظات مصر خلال {BRAND_CONFIG.shipping.defaultDeliveryDays}.</li>
+                  {BRAND_CONFIG.shipping.allowInspectionOnDelivery && <li>تقدري تعايني الطلب قبل ما تدفعي.</li>}
+                  <li>الدفع عند الاستلام أو بفودافون كاش.</li>
+                  <li>لأي استفسار عن الاستبدال، تواصلي معنا على واتساب.</li>
+                </ul>
+              </AccordionItem>
+            </div>
           </div>
         </div>
 
@@ -287,6 +353,8 @@ export function ProductDetail({ product, related }: { product: Product; related:
           </div>
         )}
       </div>
+
+      <RecentlyViewed excludeId={product.id} />
 
       {/* Mobile sticky bar */}
       <div className="sm:hidden fixed bottom-0 right-0 left-0 z-40 glass border-t border-border p-3 flex items-center gap-2">
@@ -306,7 +374,19 @@ export function ProductDetail({ product, related }: { product: Product; related:
         >
           <MessageCircle className="w-5 h-5" strokeWidth={1.5} />
         </a>
+        <WishlistButton product={product} className="w-12 h-12 shrink-0 border border-border" />
       </div>
+
+      {/* عرض الصور بالحجم الكامل (تقدري تعملي zoom بإصبعين على الموبايل) */}
+      {zoomOpen && (
+        <ImageLightbox
+          images={product.images}
+          alt={product.title_ar}
+          index={activeImage}
+          onIndexChange={showImage}
+          onClose={() => setZoomOpen(false)}
+        />
+      )}
 
       {/* Size guide modal */}
       {sizeGuideOpen && (
@@ -353,5 +433,70 @@ export function ProductDetail({ product, related }: { product: Product; related:
         </div>
       )}
     </>
+  );
+}
+
+function AccordionItem({ title, defaultOpen, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  return (
+    <details className="group border-b border-border" open={defaultOpen}>
+      <summary className="flex items-center justify-between py-4 cursor-pointer list-none font-arabic text-sm font-medium [&::-webkit-details-marker]:hidden">
+        {title}
+        <Plus className="w-4 h-4 transition-transform duration-300 group-open:rotate-45" strokeWidth={1.5} />
+      </summary>
+      <div className="pb-5 font-arabic text-sm text-muted-foreground leading-relaxed">{children}</div>
+    </details>
+  );
+}
+
+function ImageLightbox({
+  images,
+  alt,
+  index,
+  onIndexChange,
+  onClose,
+}: {
+  images: string[];
+  alt: string;
+  index: number;
+  onIndexChange: (i: number) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') onIndexChange(index + 1);
+      if (e.key === 'ArrowRight') onIndexChange(index - 1);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [index, onClose, onIndexChange]);
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-background fade-in" role="dialog" aria-modal="true" aria-label={alt}>
+      <button onClick={onClose} aria-label="إغلاق" className="absolute top-4 left-4 z-10 w-11 h-11 bg-background/90 flex items-center justify-center">
+        <X className="w-6 h-6" strokeWidth={1.25} />
+      </button>
+      <div className="relative w-full h-full">
+        <Image src={images[index]} alt={alt} fill sizes="100vw" quality={90} className="object-contain" />
+      </div>
+      {images.length > 1 && (
+        <>
+          <button onClick={() => onIndexChange(index - 1)} aria-label="السابق" className="absolute top-1/2 right-3 -translate-y-1/2 w-11 h-11 bg-background/90 flex items-center justify-center">
+            <ChevronRight className="w-6 h-6" strokeWidth={1.25} />
+          </button>
+          <button onClick={() => onIndexChange(index + 1)} aria-label="التالي" className="absolute top-1/2 left-3 -translate-y-1/2 w-11 h-11 bg-background/90 flex items-center justify-center">
+            <ChevronLeft className="w-6 h-6" strokeWidth={1.25} />
+          </button>
+          <p className="absolute bottom-5 inset-x-0 text-center font-body text-xs tracking-[0.3em] num-rtl">
+            {index + 1} / {images.length}
+          </p>
+        </>
+      )}
+    </div>
   );
 }

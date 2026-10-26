@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -17,10 +17,18 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AuthModal } from '@/components/ui/auth-modal';
 import { receiptFileToCompressedDataURL } from '@/lib/image-upload';
+import { FreeShippingProgress } from '@/components/store/free-shipping-progress';
+import { track } from '@/lib/analytics';
 
 type Step = 'form' | 'vodafone-receipt' | 'success';
 
-export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] }) {
+export function CheckoutForm({
+  shippingRates,
+  freeShippingThreshold,
+}: {
+  shippingRates: ShippingRate[];
+  freeShippingThreshold: number | null;
+}) {
   const { items, subtotal, clearCart } = useCart();
   const { user, loading: authLoading } = useAuth();
 
@@ -70,7 +78,19 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
     () => shippingRates.find((r) => r.governorate_ar === form.governorate),
     [shippingRates, form.governorate]
   );
-  const shippingFee = selectedRate?.cost_egp ?? 0;
+  const baseShippingFee = selectedRate?.cost_egp ?? 0;
+
+  // مرة واحدة لما العميلة تفتح صفحة الدفع وفي سلتها منتجات
+  const initiatedRef = useRef(false);
+  useEffect(() => {
+    if (initiatedRef.current || items.length === 0) return;
+    initiatedRef.current = true;
+    track('InitiateCheckout', {
+      content_ids: items.map((i) => i.product.id),
+      num_items: items.reduce((n, i) => n + i.quantity, 0),
+      value: subtotal,
+    });
+  }, [items, subtotal]);
 
   // كود الخصم: preview_discount بيرجع قيمة الخصم للعرض بس، والحساب
   // الحقيقي بيحصل تاني جوه place_order على السيرفر.
@@ -103,6 +123,9 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
   };
 
   const discountAmount = discount?.amount ?? 0;
+  // نفس قاعدة place_order: الشحن مجاني لو المنتجات بعد الخصم وصلت الحد
+  const freeShipping = !!freeShippingThreshold && subtotal - discountAmount >= freeShippingThreshold;
+  const shippingFee = freeShipping ? 0 : baseShippingFee;
   const total = subtotal - discountAmount + shippingFee;
 
   const update = (key: keyof typeof form, value: string | boolean) => {
@@ -155,6 +178,12 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
       }
       const order = { id: placed.order_id, order_number: placed.order_number };
       const orderTotal = Number(placed.total_amount_egp);
+      track('Purchase', {
+        content_ids: items.map((i) => i.product.id),
+        content_type: 'product',
+        num_items: items.reduce((n, i) => n + i.quantity, 0),
+        value: orderTotal,
+      });
 
       // لو العميلة مسجلة دخول واختارت تحفظ بياناتها، بنحدّث الحساب
       // ببيانات الشحن دي عشان تتملى تلقائي في الطلب الجاي.
@@ -295,7 +324,7 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
             )}
             {/* اختيار صريح بين الكاميرا (capture) واختيار صورة محفوظة من الجهاز */}
             <div className="flex gap-2 justify-center">
-              <label className="cursor-pointer bg-foreground text-primary-foreground font-arabic text-sm px-4 py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5">
+              <label className="cursor-pointer bg-foreground text-primary-foreground font-arabic text-sm px-4 py-2.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center gap-1.5">
                 <Camera className="w-4 h-4" />
                 التقاط صورة
                 <input type="file" accept="image/*" capture="environment" onChange={handleReceiptFile} className="hidden" />
@@ -312,7 +341,7 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
             type="button"
             onClick={handleUploadReceipt}
             disabled={uploadingReceipt || !receiptPreview}
-            className="w-full bg-foreground text-primary-foreground font-arabic py-3.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full bg-foreground text-primary-foreground font-arabic py-3.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {uploadingReceipt ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
             رفع الإيصال وتأكيد الطلب
@@ -361,7 +390,7 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/shop" className="font-arabic bg-foreground text-primary-foreground px-8 py-3 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all">
+          <Link href="/shop" className="font-arabic bg-foreground text-primary-foreground px-8 py-3 rounded-sm hover:bg-foreground/85 transition-all">
             متابعة التسوق
           </Link>
           <Link href="/" className="font-arabic border border-border px-8 py-3 rounded-sm hover:border-foreground transition-all">
@@ -378,7 +407,7 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-20 lg:py-28 text-center">
         <h1 className="font-display text-3xl font-semibold mb-4">سلتك فارغة</h1>
         <p className="font-arabic text-muted-foreground mb-8">أضيفي بعض المنتجات قبل إتمام الطلب</p>
-        <Link href="/shop" className="font-arabic inline-flex items-center gap-2 bg-foreground text-primary-foreground px-8 py-3 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all">
+        <Link href="/shop" className="font-arabic inline-flex items-center gap-2 bg-foreground text-primary-foreground px-8 py-3 rounded-sm hover:bg-foreground/85 transition-all">
           <ArrowLeft className="w-4 h-4" />
           تصفحي المتجر
         </Link>
@@ -612,7 +641,7 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
               <div className="flex items-center justify-between">
                 <span className="font-arabic text-sm text-muted-foreground">الشحن</span>
                 <span className="font-body text-sm num-rtl">
-                  {form.governorate ? `${priceEGP(shippingFee)} ج.م` : 'اختاري المحافظة'}
+                  {freeShipping ? 'مجاني' : form.governorate ? `${priceEGP(shippingFee)} ج.م` : 'اختاري المحافظة'}
                 </span>
               </div>
               {selectedRate && (
@@ -621,6 +650,10 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
                   {selectedRate.estimated_days}
                 </div>
               )}
+            </div>
+
+            <div className="py-4 border-t border-border">
+              <FreeShippingProgress subtotal={subtotal - discountAmount} threshold={freeShippingThreshold} />
             </div>
 
             <div className="py-4 border-t border-border space-y-3">
@@ -671,7 +704,7 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-foreground text-primary-foreground font-arabic py-4 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all duration-400 flex items-center justify-center gap-2 disabled:opacity-60"
+              className="w-full bg-foreground text-primary-foreground font-arabic py-4 rounded-sm hover:bg-foreground/85 transition-all duration-400 flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading ? (
                 <>

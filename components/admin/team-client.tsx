@@ -128,7 +128,7 @@ export function TeamClient() {
           <button
             onClick={handleAdd}
             disabled={saving}
-            className="font-arabic bg-foreground text-primary-foreground px-6 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+            className="font-arabic bg-foreground text-primary-foreground px-6 py-2 rounded-sm text-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
             إضافة

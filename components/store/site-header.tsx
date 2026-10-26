@@ -1,10 +1,12 @@
 "use client";
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Menu, X, User, LogOut } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ShoppingBag, Search, Menu, X, User, LogOut, Heart } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
+import { useWishlist } from '@/lib/wishlist-context';
+import { SearchOverlay } from '@/components/store/search-overlay';
 import { AuthModal } from '@/components/ui/auth-modal';
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { cn } from '@/lib/utils';
@@ -22,6 +24,10 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const { count: wishlistCount } = useWishlist();
+  // useCallback عشان الـ effect بتاع الـ overlay (Esc وقفل السكرول) مايتعادش مع كل render
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 30);
@@ -84,8 +90,10 @@ export function SiteHeader() {
 
             {/* Actions */}
             <div className="flex items-center gap-1 sm:gap-2">
+              {/* 🔍 البحث - ظاهر على الموبايل كمان */}
               <button
-                className="p-2.5 text-foreground/80 hover:text-foreground transition-colors hidden sm:block"
+                onClick={() => setSearchOpen(true)}
+                className="p-2 sm:p-2.5 text-foreground/80 hover:text-foreground transition-colors"
                 aria-label="بحث"
               >
                 <Search className="w-5 h-5" strokeWidth={1.5} />
@@ -102,9 +110,10 @@ export function SiteHeader() {
                   >
                     <User className="w-5 h-5" strokeWidth={1.5} />
                   </Link>
+                  {/* على الموبايل مخفي عشان الهيدر مايزحمش - تسجيل الخروج موجود في القائمة الجانبية */}
                   <button
                     onClick={() => signOut()}
-                    className="p-2.5 text-foreground/80 hover:text-destructive transition-colors"
+                    className="hidden sm:block p-2.5 text-foreground/80 hover:text-destructive transition-colors"
                     title="تسجيل الخروج"
                     aria-label="تسجيل الخروج"
                   >
@@ -121,6 +130,21 @@ export function SiteHeader() {
                   <User className="w-5 h-5" strokeWidth={1.5} />
                 </button>
               )}
+
+              {/* ❤️ المفضلة */}
+              <Link
+                href="/wishlist"
+                className="relative p-2 sm:p-2.5 text-foreground/80 hover:text-accent transition-colors"
+                aria-label="المفضلة"
+                title="المفضلة"
+              >
+                <Heart className="w-5 h-5" strokeWidth={1.5} />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-0.5 -left-0.5 bg-foreground text-primary-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center scale-in">
+                    {wishlistCount}
+                  </span>
+                )}
+              </Link>
 
               {/* 🛒 السلة */}
               <button
@@ -201,6 +225,9 @@ export function SiteHeader() {
           </div>
         </div>
       )}
+
+      {/* شاشة البحث الكاملة */}
+      <SearchOverlay open={searchOpen} onClose={closeSearch} />
 
       {/* Auth Modal Component */}
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />

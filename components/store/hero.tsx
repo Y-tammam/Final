@@ -65,7 +65,7 @@ export function Hero({ products: featuredProducts }: { products: Product[] }) {
                 <span className="inline-block text-accent text-xs sm:text-sm tracking-[0.3em] uppercase font-body mb-4">
                   {BRAND_CONFIG.nameArabic}
                 </span>
-                <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-semibold text-primary-foreground leading-[1.1] mb-5 text-balance">
+                <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-medium text-primary-foreground leading-[1.1] mb-5 text-balance">
                   {product.title_ar}
                 </h1>
                 <p className="font-arabic text-primary-foreground/85 text-base sm:text-lg leading-relaxed mb-8 max-w-md line-clamp-2">

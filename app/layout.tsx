@@ -1,10 +1,12 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Playfair_Display, Plus_Jakarta_Sans, Cairo } from 'next/font/google';
+import { Playfair_Display, Plus_Jakarta_Sans, Cairo, El_Messiri } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import { CartProvider } from '@/lib/cart-context';
+import { WishlistProvider } from '@/lib/wishlist-context';
 import { AuthProvider } from '@/lib/auth-context';
 import { BRAND_CONFIG } from '@/lib/brand';
+import { SITE_URL } from '@/lib/site';
 
 // الخطوط التلاتة "Variable fonts": من غير ما نحدد weight بيتحمل ملف واحد
 // لكل خط بيغطي كل الأوزان، بدل ملف منفصل لكل وزن (كانوا 15 ملف خط بيتحملوا
@@ -24,6 +26,16 @@ const jakarta = Plus_Jakarta_Sans({
   preload: false,
 });
 
+// خط عناوين عربي راقي (Variable - ملف واحد). Playfair بيغطي الحروف
+// الإنجليزية في العناوين، و El Messiri بيغطي العربي بدل ما يقع على خط
+// النظام العادي.
+const messiri = El_Messiri({
+  subsets: ['arabic'],
+  variable: '--font-messiri',
+  display: 'swap',
+  preload: false,
+});
+
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
   variable: '--font-cairo',
@@ -36,9 +48,9 @@ const cairo = Cairo({
 const SITE_TITLE = `${BRAND_CONFIG.nameArabic} | ${BRAND_CONFIG.tagline}`;
 
 export const metadata: Metadata = {
-  // ⚠️ لازم تغيّري الدومين ده لدومينك الحقيقي (اللي هتربطيه بـ Netlify) عشان
-  // روابط الصور والمعاينة (Open Graph) تشتغل صح لما حد يشارك رابط الموقع.
-  metadataBase: new URL('https://soraia.eg'),
+  // الدومين بييجي من NEXT_PUBLIC_SITE_URL (lib/site.ts) عشان روابط الصور
+  // والمعاينة (Open Graph) تشتغل صح لما حد يشارك رابط الموقع.
+  metadataBase: new URL(SITE_URL),
   title: { default: SITE_TITLE, template: `%s | ${BRAND_CONFIG.nameArabic}` },
   description: BRAND_CONFIG.tagline,
   keywords: ['ملابس تركية', 'عبايات', 'فساتين', 'موضة نسائية', 'مصر', 'أزياء فاخرة', BRAND_CONFIG.nameArabic],
@@ -60,10 +72,12 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
       </head>
-      <body className={`${playfair.variable} ${jakarta.variable} ${cairo.variable} font-arabic bg-background text-foreground antialiased`}>
+      <body className={`${playfair.variable} ${messiri.variable} ${jakarta.variable} ${cairo.variable} font-arabic bg-background text-foreground antialiased`}>
         <AuthProvider>
           <CartProvider>
-            {children}
+            <WishlistProvider>
+              {children}
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
         <Toaster position="top-center" dir="rtl" />

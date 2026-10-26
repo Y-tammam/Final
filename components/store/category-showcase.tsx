@@ -11,11 +11,11 @@ const CATEGORY_IMAGES: Record<string, string> = {
 
 export function CategoryShowcase({ categories, counts }: { categories: Category[]; counts: Record<string, number> }) {
   return (
-    <section className="bg-secondary/50 py-20 lg:py-28">
+    <section className="bg-secondary/50 py-24 lg:py-36">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <span className="font-body text-xs tracking-[0.3em] uppercase text-accent">Collections</span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mt-2">تسوقي حسب الفئة</h2>
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-medium mt-2">تسوقي حسب الفئة</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">

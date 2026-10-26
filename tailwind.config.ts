@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['var(--font-playfair)', 'Georgia', 'serif'],
+        display: ['var(--font-playfair)', 'var(--font-messiri)', 'Georgia', 'serif'],
         body: ['var(--font-jakarta)', 'var(--font-cairo)', 'system-ui', 'sans-serif'],
         arabic: ['var(--font-cairo)', 'var(--font-readex)', 'system-ui', 'sans-serif'],
       },
@@ -21,8 +21,8 @@ const config: Config = {
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'max(0px, calc(var(--radius) - 2px))',
+        sm: 'max(0px, calc(var(--radius) - 4px))',
       },
       colors: {
         background: 'hsl(var(--background))',

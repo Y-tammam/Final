@@ -101,3 +101,7 @@ export type DiscountCode = {
   is_active: boolean;
   created_at: string;
 };
+
+export type StoreSettings = {
+  free_shipping_threshold_egp: number | null;
+};

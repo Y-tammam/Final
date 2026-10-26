@@ -67,7 +67,7 @@ export function ProductsClient({ initialProducts, categories: initialCategories 
         </div>
         <button
           onClick={() => { setEditing(null); setShowForm(true); }}
-          className="font-arabic bg-foreground text-primary-foreground px-5 py-2.5 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-2 text-sm"
+          className="font-arabic bg-foreground text-primary-foreground px-5 py-2.5 rounded-sm hover:bg-foreground/85 transition-all flex items-center gap-2 text-sm"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           إضافة منتج
@@ -512,7 +512,7 @@ const handleAddCategory = async () => {
               <button type="button" onClick={addImage} className="font-arabic bg-secondary px-3 py-2 rounded-sm text-sm hover:bg-accent/20 transition-colors">إضافة URL</button>
               
               <label className={cn(
-                "font-arabic bg-foreground text-primary-foreground px-3 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
+                "font-arabic bg-foreground text-primary-foreground px-3 py-2 rounded-sm text-sm hover:bg-foreground/85 transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
                 uploadingImages && "opacity-60 pointer-events-none"
               )}>
                 {uploadingImages ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
@@ -558,7 +558,7 @@ const handleAddCategory = async () => {
 
           {/* Submit */}
           <div className="flex gap-3 pt-2 sticky bottom-0 bg-background py-3">
-            <button type="submit" disabled={loading} className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+            <button type="submit" disabled={loading} className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : product ? 'حفظ التعديلات' : 'إضافة المنتج'}
             </button>
             <button type="button" onClick={onClose} className="font-arabic border border-border px-6 py-3 rounded-sm hover:bg-secondary transition-all">

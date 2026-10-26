@@ -348,7 +348,7 @@ function OrderDrawer({
           </a>
           <button
             onClick={() => printReceipt(order)}
-            className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-accent hover:text-accent-foreground transition-all flex items-center justify-center gap-2 text-sm"
+            className="flex-1 bg-foreground text-primary-foreground font-arabic py-3 rounded-sm hover:bg-foreground/85 transition-all flex items-center justify-center gap-2 text-sm"
           >
             <Printer className="w-5 h-5" strokeWidth={1.5} />
             طباعة الإيصال
