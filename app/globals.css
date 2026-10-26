@@ -180,6 +180,14 @@
   }
 }
 
+/* صفحة المنتج فيها شريط ثابت تحت على الموبايل - بنزوّد مسافة تحت الفوتر
+   عشان الشريط مايغطيش آخر سطر فيه */
+@media (max-width: 639px) {
+  body:has([data-sticky-bar]) footer {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 76px);
+  }
+}
+
 /* RTL friendly number rendering */
 .num-rtl {
   direction: ltr;
