@@ -52,6 +52,7 @@ export type Order = {
   payment_receipt_url: string | null;
   discount_code: string | null;
   discount_egp: number;
+  attribution?: Record<string, string> | null;
   order_status: string;
   allow_inspection: boolean;
   notes: string | null;
@@ -104,4 +105,27 @@ export type DiscountCode = {
 
 export type StoreSettings = {
   free_shipping_threshold_egp: number | null;
+  announcement_text: string | null;
+  announcement_link: string | null;
+  announcement_ends_at: string | null;
+};
+
+export type StorePage = {
+  slug: 'shipping' | 'exchange' | 'privacy';
+  title_ar: string;
+  body_ar: string;
+  updated_at: string;
+};
+
+export type CheckoutDraft = {
+  id: string;
+  phone: string;
+  customer_name: string | null;
+  governorate: string | null;
+  cart: { variant_id: string; title: string; slug: string; size: string; color: string; quantity: number; unit_price: number }[];
+  subtotal_egp: number;
+  attribution: Record<string, string> | null;
+  created_at: string;
+  updated_at: string;
+  contacted_at: string | null;
 };

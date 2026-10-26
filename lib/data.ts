@@ -1,5 +1,5 @@
 import { supabasePublic as supabase } from './supabase-public';
-import type { Product, Category, ShippingRate, StoreSettings } from './types';
+import type { Product, Category, ShippingRate, StoreSettings, StorePage } from './types';
 
 // كل الدوال هنا للمتجر العام بس (مفيش كوكيز) عشان الصفحات تتكاش.
 // بيانات الأدمن في lib/admin-data.ts وبتستخدم supabaseServer().
@@ -96,6 +96,21 @@ export async function getShippingRates(): Promise<ShippingRate[]> {
 // إعدادات عامة للمتجر (حد الشحن المجاني). بتتعدّل من صفحة الشحن في لوحة
 // التحكم، و place_order بيطبقها على السيرفر.
 export async function getStoreSettings(): Promise<StoreSettings> {
-  const { data } = await supabase.from('store_settings').select('free_shipping_threshold_egp').maybeSingle();
-  return { free_shipping_threshold_egp: data?.free_shipping_threshold_egp ?? null };
+  const { data } = await supabase.from('store_settings').select('*').maybeSingle();
+  return {
+    free_shipping_threshold_egp: data?.free_shipping_threshold_egp ?? null,
+    announcement_text: data?.announcement_text ?? null,
+    announcement_link: data?.announcement_link ?? null,
+    announcement_ends_at: data?.announcement_ends_at ?? null,
+  };
+}
+
+export async function getStorePage(slug: string): Promise<StorePage | null> {
+  const { data } = await supabase.from('store_pages').select('*').eq('slug', slug).maybeSingle();
+  return (data as StorePage) ?? null;
+}
+
+export async function getStorePages(): Promise<StorePage[]> {
+  const { data } = await supabase.from('store_pages').select('*');
+  return (data ?? []) as StorePage[];
 }

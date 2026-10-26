@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // الموظف (staff) صلاحيته على الطلبات بس
-    if (role === 'staff' && !pathname.startsWith('/admin/orders')) {
+    if (role === 'staff' && !pathname.startsWith('/admin/orders') && !pathname.startsWith('/admin/abandoned')) {
       return NextResponse.redirect(new URL('/admin/orders', request.url));
     }
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { Search, MessageCircle, Printer, X, Phone, MapPin, Clock, CreditCard, Package, Eye } from 'lucide-react';
+import { Search, MessageCircle, Printer, X, Phone, MapPin, Clock, CreditCard, Package, Eye, Ban, Megaphone } from 'lucide-react';
 import type { Order, OrderItem } from '@/lib/types';
 import { priceEGP, formatDateTimeArabic, timeAgoArabic } from '@/lib/format';
 import { ORDER_STATUS, PAYMENT_METHODS, BRAND_CONFIG } from '@/lib/brand';
@@ -202,9 +202,31 @@ function OrderDrawer({
     };
   }, [order.id, order.payment_method]);
 
+  // حظر الرقم (للمالك بس - RLS): 'prepaid' = يطلب بفودافون كاش بس، 'block' = ممنوع
+  const blockPhone = async (mode: 'prepaid' | 'block') => {
+    const label = mode === 'block' ? 'منع الرقم ده من الطلب نهائياً' : 'السماح للرقم ده بالدفع المسبق (فودافون كاش) بس';
+    if (!confirm(`${label}؟\n${order.customer_phone}`)) return;
+    const { error } = await supabase
+      .from('blocked_phones')
+      .upsert({ phone: order.customer_phone, mode, reason: `طلب #${order.order_number}` });
+    if (error) {
+      toast.error('الإجراء ده للمالك بس');
+      return;
+    }
+    toast.success('تم');
+  };
+
   const phone = order.whatsapp_phone || order.customer_phone;
   const waNumber = phone.replace(/[^0-9]/g, '');
-  const waMessage = `مرحباً ${order.customer_name}،\nبخصوص طلبك رقم #${order.order_number} من ${BRAND_CONFIG.nameArabic}.\nالحالة الحالية: ${ORDER_STATUS[order.order_status as keyof typeof ORDER_STATUS]?.label}`;
+  // الطلب لسه pending: رسالة تأكيد فيها المنتجات والإجمالي والعنوان. تأكيد
+  // طلبات الدفع عند الاستلام قبل الشحن بيقلل الرفض عند الباب جداً.
+  const itemsText = (order.order_items ?? [])
+    .map((i) => `• ${itemTitle(i)}${itemVariant(i) ? ` (${itemVariant(i)})` : ''} × ${i.quantity}`)
+    .join('\n');
+  const waMessage =
+    order.order_status === 'pending'
+      ? `مرحباً ${order.customer_name} 🤍\nمعاكي ${BRAND_CONFIG.nameArabic} - بنأكد طلبك رقم #${order.order_number}:\n${itemsText}\nالإجمالي: ${priceEGP(order.total_amount_egp)} ج.م\nالعنوان: ${order.governorate} - ${order.city_address}\n\nمن فضلك ردي بـ "تأكيد" عشان نجهز الشحنة، أو قوليلنا لو محتاجة تعدلي حاجة.`
+      : `مرحباً ${order.customer_name}،\nبخصوص طلبك رقم #${order.order_number} من ${BRAND_CONFIG.nameArabic}.\nالحالة الحالية: ${ORDER_STATUS[order.order_status as keyof typeof ORDER_STATUS]?.label}`;
   const waLink = `https://wa.me/${waNumber.startsWith('20') ? waNumber : '2' + waNumber.replace(/^0/, '')}?text=${encodeURIComponent(waMessage)}`;
 
   return (
@@ -284,6 +306,22 @@ function OrderDrawer({
                 <span className="font-arabic text-xs">العميل طلب المعاينة قبل الدفع</span>
               </div>
             )}
+            {order.attribution && (order.attribution.utm_source || order.attribution.utm_campaign) && (
+              <div className="flex items-center gap-2 text-xs font-arabic text-muted-foreground">
+                <Megaphone className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+                المصدر: {[order.attribution.utm_source, order.attribution.utm_campaign, order.attribution.utm_content].filter(Boolean).join(' / ')}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => blockPhone('prepaid')} className="font-arabic text-[11px] border border-border px-2.5 py-1.5 rounded-sm hover:border-foreground/40 flex items-center gap-1">
+                <Ban className="w-3.5 h-3.5" strokeWidth={1.5} />
+                دفع مسبق بس للرقم ده
+              </button>
+              <button onClick={() => blockPhone('block')} className="font-arabic text-[11px] border border-destructive/40 text-destructive px-2.5 py-1.5 rounded-sm hover:bg-destructive/5 flex items-center gap-1">
+                <Ban className="w-3.5 h-3.5" strokeWidth={1.5} />
+                حظر الرقم
+              </button>
+            </div>
             {order.notes && (
               <div className="bg-background rounded-sm p-3 border border-border">
                 <p className="font-arabic text-xs text-muted-foreground mb-1">ملاحظات:</p>
@@ -344,7 +382,7 @@ function OrderDrawer({
             className="flex-1 bg-success/10 text-success font-arabic py-3 rounded-sm hover:bg-success/20 transition-all flex items-center justify-center gap-2 text-sm"
           >
             <MessageCircle className="w-5 h-5" strokeWidth={1.5} />
-            مراسلة واتساب
+            {order.order_status === 'pending' ? 'تأكيد على واتساب' : 'مراسلة واتساب'}
           </a>
           <button
             onClick={() => printReceipt(order)}
