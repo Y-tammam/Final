@@ -6,8 +6,12 @@ import { ShoppingBag, Search, Menu, X, User, LogOut, Heart } from 'lucide-react'
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
 import { useWishlist } from '@/lib/wishlist-context';
-import { SearchOverlay } from '@/components/store/search-overlay';
-import { AuthModal } from '@/components/ui/auth-modal';
+import dynamic from 'next/dynamic';
+
+// البحث ونافذة الدخول بيتحملوا لما العميلة تفتحهم بس (فيهم Supabase) -
+// مش مع كل صفحة.
+const SearchOverlay = dynamic(() => import('@/components/store/search-overlay').then((m) => m.SearchOverlay), { ssr: false });
+const AuthModal = dynamic(() => import('@/components/ui/auth-modal').then((m) => m.AuthModal), { ssr: false });
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { BRAND_CONFIG } from '@/lib/brand';
 import { cn } from '@/lib/utils';
@@ -25,7 +29,11 @@ const NAV_LINKS = [
   { href: '/#contact', label: 'تواصل معنا' },
 ];
 
-export function SiteHeader() {
+export type Announcement = { text: string; link: string | null } | null;
+
+// announcement: عرض بيتكتب من لوحة التحكم (الإعدادات > شريط الإعلانات).
+// لو مفيش عرض، بيظهر النص الافتراضي.
+export function SiteHeader({ announcement = null }: { announcement?: Announcement }) {
   const { totalItems, setIsOpen } = useCart();
   const { user, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
@@ -66,7 +74,13 @@ export function SiteHeader() {
     <>
       {/* شريط الإعلان: رسالة واحدة واضحة - من غير tracking عشان الحروف العربية تفضل متوصلة */}
       <div className="bg-foreground text-background text-center text-[13px] leading-6 py-2 px-4 font-arabic">
-        معاينة قبل الدفع • شحن لكل المحافظات • الدفع عند الاستلام
+        {announcement?.link ? (
+          <Link href={announcement.link} className="underline-offset-4 hover:underline">
+            {announcement.text}
+          </Link>
+        ) : (
+          announcement?.text ?? 'معاينة قبل الدفع • شحن لكل المحافظات • الدفع عند الاستلام'
+        )}
       </div>
 
       <header
@@ -99,7 +113,7 @@ export function SiteHeader() {
               <BrandLogo
                 className={cn(
                   'w-auto mix-blend-multiply transition-[height] duration-500 ease-luxury',
-                  scrolled ? 'h-10 lg:h-12' : 'h-14 lg:h-16'
+                  scrolled ? 'h-10 lg:h-14' : 'h-14 lg:h-20'
                 )}
                 textClassName="text-3xl lg:text-4xl text-foreground leading-none"
               />
@@ -253,10 +267,10 @@ export function SiteHeader() {
       )}
 
       {/* شاشة البحث الكاملة */}
-      <SearchOverlay open={searchOpen} onClose={closeSearch} />
+      {searchOpen && <SearchOverlay open={searchOpen} onClose={closeSearch} />}
 
       {/* Auth Modal Component */}
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
+      {authOpen && <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />}
     </>
   );
 }

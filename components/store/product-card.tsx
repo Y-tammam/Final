@@ -83,7 +83,7 @@ export function ProductCard({ product, isNew = false }: { product: Product; isNe
             )}
             {discount && discount >= MIN_BADGE_DISCOUNT && (
               <span className="bg-background/90 text-foreground font-arabic text-xs leading-5 px-2 tabular-nums">
-                -{arNum(discount)}٪
+                خصم {arNum(discount)}٪
               </span>
             )}
           </div>

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ShoppingBag, MessageCircle, Ruler, Check, ChevronLeft, ChevronRight, Truck, Eye, Sparkles, X, Maximize2, Plus } from 'lucide-react';
 import type { Product, ProductVariant } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { restSelect } from '@/lib/rest';
 import { useCart } from '@/lib/cart-context';
 import { priceEGP, discountPercent } from '@/lib/format';
 import { BRAND_CONFIG, TURKISH_SIZE_GUIDE } from '@/lib/brand';
@@ -31,13 +31,9 @@ export function ProductDetail({ product, related }: { product: Product; related:
   useEffect(() => {
     let active = true;
     setVariants(product.variants ?? []);
-    supabase
-      .from('product_variants')
-      .select('*')
-      .eq('product_id', product.id)
-      .then(({ data }) => {
-        if (active && data) setVariants(data as ProductVariant[]);
-      });
+    restSelect<ProductVariant>('product_variants', `select=*&product_id=eq.${encodeURIComponent(product.id)}`).then((data) => {
+      if (active && data) setVariants(data);
+    });
     return () => {
       active = false;
     };
@@ -227,7 +223,7 @@ export function ProductDetail({ product, related }: { product: Product; related:
           {/* Info */}
           <div className="lg:py-4">
             {product.category && (
-              <Link href={`/shop?category=${product.category.slug}`} className="font-arabic text-[13px] text-accent-text hover:text-foreground transition-colors">
+              <Link href={`/shop/${encodeURIComponent(product.category.slug)}`} className="font-arabic text-[13px] text-accent-text hover:text-foreground transition-colors">
                 {product.category.name_ar}
               </Link>
             )}

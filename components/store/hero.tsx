@@ -19,6 +19,17 @@ const AUTOPLAY_MS = 6000;
 export function Hero({ products: featuredProducts }: { products: Product[] }) {
   const count = featuredProducts.length;
   const [active, setActive] = useState(0);
+  // صور السلايدات بتتحمل لما ييجي دورها بس (السلايد الحالي + اللي بعده).
+  // قبل كده الخمس صور كانوا بيتحملوا مع بعض وبيزاحموا أول صورة (LCP).
+  const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
+  useEffect(() => {
+    if (count < 2) return;
+    setSeen((prev) => {
+      const next = (active + 1) % count;
+      if (prev.has(active) && prev.has(next)) return prev;
+      return new Set(prev).add(active).add(next);
+    });
+  }, [active, count]);
   // autoplay = اختيار العميلة (الزرار)، interacting = الماوس/الـ focus جوه الهيرو
   const [autoplay, setAutoplay] = useState(true);
   const [interacting, setInteracting] = useState(false);
@@ -88,7 +99,8 @@ export function Hero({ products: featuredProducts }: { products: Product[] }) {
               isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
             )}
           >
-            {/* أول صورة بس priority (preload)، والباقي بيتحمل lazy لحد ما يظهر */}
+            {/* أول صورة بس priority (preload)، والباقي بيتحمل لما ييجي دوره */}
+            {seen.has(i) && (
             <Image
               src={imageUrl}
               alt={product.title_ar}
@@ -98,6 +110,7 @@ export function Hero({ products: featuredProducts }: { products: Product[] }) {
               quality={70}
               className="object-cover"
             />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/25 to-foreground/10" />
 
             <div className="relative h-full max-w-7xl mx-auto px-6 lg:px-8 flex items-end pb-24 sm:pb-28">

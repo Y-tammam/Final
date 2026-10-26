@@ -21,6 +21,17 @@ export function CartDrawer({ freeShippingThreshold }: { freeShippingThreshold: n
     });
   }, [isOpen, refreshStock]);
 
+  // inert بيمنع الـ Tab وقارئ الشاشة يدخلوا جوه السلة وهي مقفولة. بنحطه على الـ DOM
+  // مباشرة لأن React 18 types مفيهاش inert، وNext بيشغّل React 19 اللي بيعامل
+  // inert="" على إنه false - فالـ attribute اليدوي هو الطريقة المضمونة للاتنين.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (isOpen) el.removeAttribute('inert');
+    else el.setAttribute('inert', '');
+  }, [isOpen]);
+
   // Esc بيقفل السلة، والـ focus بيروح لزرار الإغلاق، والسكرول ورا بيتقفل
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -38,11 +49,8 @@ export function CartDrawer({ freeShippingThreshold }: { freeShippingThreshold: n
     };
   }, [isOpen, setIsOpen]);
 
-  // React 18 types مفيهاش inert - وهي اللي بتمنع الـ Tab يدخل جوه السلة وهي مقفولة
-  const inertProps = (!isOpen ? { inert: '' } : {}) as Record<string, string>;
-
   return (
-    <div className={cn('fixed inset-0 z-[70]', !isOpen && 'pointer-events-none')} {...inertProps} aria-hidden={!isOpen}>
+    <div ref={rootRef} className={cn('fixed inset-0 z-[70]', !isOpen && 'pointer-events-none')} aria-hidden={!isOpen}>
       {/* backdrop */}
       <div
         className={cn('absolute inset-0 bg-foreground/40 transition-opacity duration-500', isOpen ? 'opacity-100' : 'opacity-0')}

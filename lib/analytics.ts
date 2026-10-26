@@ -7,8 +7,16 @@ type Fbq = (...args: unknown[]) => void;
 
 export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? '';
 
-export function track(event: 'ViewContent' | 'AddToCart' | 'InitiateCheckout' | 'Purchase' | 'AddToWishlist' | 'Search', params?: Record<string, unknown>) {
+// eventID: نفس الرقم اللي بيتبعت من السيرفر (Conversions API) عشان ميتا
+// تعدّ الشراء مرة واحدة بس
+export function track(
+  event: 'ViewContent' | 'AddToCart' | 'InitiateCheckout' | 'Purchase' | 'AddToWishlist' | 'Search',
+  params?: Record<string, unknown>,
+  eventID?: string
+) {
   if (typeof window === 'undefined') return;
   const fbq = (window as unknown as { fbq?: Fbq }).fbq;
-  if (fbq) fbq('track', event, { currency: 'EGP', ...params });
+  if (!fbq) return;
+  if (eventID) fbq('track', event, { currency: 'EGP', ...params }, { eventID });
+  else fbq('track', event, { currency: 'EGP', ...params });
 }

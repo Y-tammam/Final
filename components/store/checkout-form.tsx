@@ -19,6 +19,7 @@ import { AuthModal } from '@/components/ui/auth-modal';
 import { receiptFileToCompressedDataURL } from '@/lib/image-upload';
 import { FreeShippingProgress } from '@/components/store/free-shipping-progress';
 import { track } from '@/lib/analytics';
+import { getAttributionForOrder } from '@/lib/attribution';
 
 type Step = 'form' | 'vodafone-receipt' | 'success';
 
@@ -51,7 +52,7 @@ export function CheckoutForm({
   const [success, setSuccess] = useState<{ orderNumber: number; total: number } | null>(null);
 
   // بيانات الطلب اللي بيحتاجها ستيب رفع إيصال فودافون كاش
-  const [pendingOrder, setPendingOrder] = useState<{ id: string; orderNumber: number; total: number } | null>(null);
+  const [pendingOrder, setPendingOrder] = useState<{ id: string; eventId: string; orderNumber: number; total: number } | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -111,6 +112,22 @@ export function CheckoutForm({
     setDiscount(null);
   }, [subtotal]);
 
+  // سلة متروكة: لما العميلة تكتب رقمها بنحفظ السلة (من غير طلب) عشان لو ما
+  // كملتش، فريق المتجر يكلمها على واتساب (لوحة التحكم > السلات المتروكة)
+  const saveDraft = () => {
+    const phone = form.customer_phone.replace(/[^0-9]/g, '');
+    if (phone.length < 10 || items.length === 0) return;
+    supabase
+      .rpc('save_checkout_draft', {
+        p_phone: form.customer_phone.trim(),
+        p_customer_name: form.customer_name.trim() || null,
+        p_governorate: form.governorate || null,
+        p_cart: items.map((i) => ({ variant_id: i.variant.id, quantity: i.quantity })),
+        p_attribution: getAttributionForOrder(),
+      })
+      .then(() => {});
+  };
+
   const applyDiscount = async () => {
     const code = discountInput.trim().toUpperCase();
     if (!code) return;
@@ -118,12 +135,12 @@ export function CheckoutForm({
     const { data, error } = await supabase.rpc('preview_discount', {
       p_code: code,
       p_subtotal: subtotal,
-      p_phone: form.customer_phone.trim() || null,
     });
     setApplyingDiscount(false);
-    if (error) {
+    // NULL = الكود مرفوض (رسالة واحدة لكل الأسباب - حماية من تخمين الأكواد)
+    if (error || data === null) {
       setDiscount(null);
-      toast.error(error.message);
+      toast.error(error?.message ?? 'كود الخصم غير صالح لهذا الطلب');
       return;
     }
     setDiscount({ code, amount: Number(data) });
@@ -199,8 +216,9 @@ export function CheckoutForm({
           p_allow_inspection: form.allow_inspection,
           p_items: items.map((item) => ({ variant_id: item.variant.id, quantity: item.quantity })),
           p_discount_code: discount?.code ?? null,
+          p_attribution: getAttributionForOrder(),
         })
-        .single<{ order_id: string; order_number: number; total_amount_egp: number }>();
+        .single<{ order_id: string; order_number: number; total_amount_egp: number; event_id: string }>();
 
       if (orderError || !placed) {
         // لو المشكلة في المخزون (حد سبقها على آخر قطعة)، بنظبط السلة تلقائي
@@ -216,12 +234,23 @@ export function CheckoutForm({
       }
       const order = { id: placed.order_id, order_number: placed.order_number };
       const orderTotal = Number(placed.total_amount_egp);
-      track('Purchase', {
-        content_ids: items.map((i) => i.product.id),
-        content_type: 'product',
-        num_items: items.reduce((n, i) => n + i.quantity, 0),
-        value: orderTotal,
-      });
+      track(
+        'Purchase',
+        {
+          content_ids: items.map((i) => i.product.id),
+          content_type: 'product',
+          num_items: items.reduce((n, i) => n + i.quantity, 0),
+          value: orderTotal,
+        },
+        placed.event_id
+      );
+      // نفس الشراء من السيرفر (Meta Conversions API) - مش بنستنى الرد
+      fetch('/api/capi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: placed.order_id, event_id: placed.event_id }),
+        keepalive: true,
+      }).catch(() => {});
 
       // لو العميلة مسجلة دخول واختارت تحفظ بياناتها، بنحدّث الحساب
       // ببيانات الشحن دي عشان تتملى تلقائي في الطلب الجاي.
@@ -241,7 +270,7 @@ export function CheckoutForm({
       clearCart();
 
       if (form.payment_method === 'Vodafone Cash') {
-        setPendingOrder({ id: order.id, orderNumber: order.order_number, total: orderTotal });
+        setPendingOrder({ id: order.id, eventId: placed.event_id, orderNumber: order.order_number, total: orderTotal });
         setStep('vodafone-receipt');
       } else {
         setSuccess({ orderNumber: order.order_number, total: orderTotal });
@@ -277,6 +306,7 @@ export function CheckoutForm({
     setUploadingReceipt(true);
     const { error } = await supabase.rpc('attach_order_receipt', {
       p_order_id: pendingOrder.id,
+      p_event_id: pendingOrder.eventId,
       p_receipt: receiptPreview,
     });
     setUploadingReceipt(false);
@@ -584,6 +614,7 @@ export function CheckoutForm({
                   }}
                   value={form.customer_phone}
                   onChange={(e) => update('customer_phone', e.target.value)}
+                  onBlur={saveDraft}
                   className={cn(fieldClass(!!errors.customer_phone), 'num-rtl text-right')}
                   placeholder="01xxxxxxxxx"
                   dir="ltr"

@@ -118,7 +118,8 @@ export async function getStoreSettings(): Promise<StoreSettings> {
 }
 
 export async function getStorePage(slug: string): Promise<StorePage | null> {
-  const { data } = await supabase.from('store_pages').select('*').eq('slug', slug).maybeSingle();
+  const { data, error } = await supabase.from('store_pages').select('*').eq('slug', slug).maybeSingle();
+  if (error) return failed(error, null);
   return (data as StorePage) ?? null;
 }
 

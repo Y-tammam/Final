@@ -22,7 +22,7 @@ export function SettingsClient({ settings, pages }: { settings: StoreSettings; p
   const saveAnnouncement = async () => {
     const cleanLink = link.trim();
     if (cleanLink && !/^\/[A-Za-z0-9/_?=&%.#-]*$/.test(cleanLink)) {
-      toast.error('الرابط لازم يكون صفحة جوه الموقع ويبدأ بـ / (مثلاً /shop?category=abayas)');
+      toast.error('الرابط لازم يكون صفحة جوه الموقع ويبدأ بـ / (مثلاً /shop/abayas)');
       return;
     }
     setSavingBar(true);

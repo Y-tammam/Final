@@ -94,10 +94,10 @@
     font-family: var(--font-playfair), var(--font-messiri), Georgia, serif;
   }
   .font-body {
-    font-family: var(--font-jakarta), var(--font-cairo), system-ui, sans-serif;
+    font-family: var(--font-cairo), system-ui, sans-serif;
   }
   .font-arabic {
-    font-family: var(--font-cairo), var(--font-readex), system-ui, sans-serif;
+    font-family: var(--font-cairo), system-ui, sans-serif;
   }
   .text-balance {
     text-wrap: balance;

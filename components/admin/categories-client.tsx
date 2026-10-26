@@ -211,7 +211,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                   <input type="file" accept="image/*" onChange={handleNewImage} disabled={uploadingNewImage} className="hidden" />
                 </label>
               )}
-              <p className="font-arabic text-xs text-muted-foreground">ارفعي صورة من جهازك، هتظهر في صفحة "تسوقي حسب الفئة" بالرئيسية</p>
+              <p className="font-arabic text-xs text-muted-foreground">ارفعي صورة من جهازك، هتظهر في صفحة «تسوقي حسب الفئة» بالرئيسية</p>
             </div>
           </div>
 

@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import type { CartItem, Product, ProductVariant } from './types';
 import { track } from './analytics';
-import { getSupabase } from './supabase-lazy';
+import { restSelect } from './rest';
 
 /*
  * المخزون في السلة
@@ -164,12 +164,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const current = itemsRef.current;
     if (current.length === 0) return [];
     const ids = current.map((i) => i.variant.id);
-    const supabase = await getSupabase();
-    const { data, error } = await supabase
-      .from('product_variants')
-      .select('id, stock_quantity, size, color_ar, color_hex, sku, product_id')
-      .in('id', ids);
-    if (error || !data) return [];
+    const data = await restSelect<ProductVariant>(
+      'product_variants',
+      `select=id,stock_quantity,size,color_ar,color_hex,sku,product_id&id=in.(${ids.map(encodeURIComponent).join(',')})`
+    );
+    if (!data) return [];
 
     // المقاس اللي مرجعش خالص = اتمسح أو المنتج بقى مسودة (RLS بيخفيه)
     const fresh = new Map(data.map((v) => [v.id, v as ProductVariant]));

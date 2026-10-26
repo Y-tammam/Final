@@ -27,7 +27,7 @@ export function CategoryShowcase({ categories }: { categories: Category[]; count
             return (
               <li key={cat.id} className="shrink-0 w-[80%] sm:w-[45%] md:w-auto snap-start">
                 <Link
-                  href={`/shop?category=${cat.slug}`}
+                  href={`/shop/${encodeURIComponent(cat.slug)}`}
                   className="group relative block aspect-[3/4] md:aspect-[4/5] overflow-hidden bg-foreground"
                 >
                   {img && (

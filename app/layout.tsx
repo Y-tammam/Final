@@ -1,6 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Playfair_Display, Plus_Jakarta_Sans, Cairo, El_Messiri } from 'next/font/google';
+import { Playfair_Display, Cairo, El_Messiri } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import { CartProvider } from '@/lib/cart-context';
 import { WishlistProvider } from '@/lib/wishlist-context';
@@ -15,13 +15,6 @@ import { SITE_URL } from '@/lib/site';
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-playfair',
-  display: 'swap',
-  preload: false,
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  variable: '--font-jakarta',
   display: 'swap',
   preload: false,
 });
@@ -115,7 +108,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD).replace(/</g, '\\u003c') }}
         />
       </head>
-      <body className={`${playfair.variable} ${messiri.variable} ${jakarta.variable} ${cairo.variable} font-arabic bg-background text-foreground antialiased`}>
+      <body className={`${playfair.variable} ${messiri.variable} ${cairo.variable} font-arabic bg-background text-foreground antialiased`}>
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>

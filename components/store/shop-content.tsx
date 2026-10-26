@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useState, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { ProductCard } from '@/components/store/product-card';
 import type { Product, Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,9 @@ export function ShopContent({
   categories: Category[];
   activeCategory?: string;
 }) {
-  const [filter, setFilter] = useState<string>(activeCategory ?? 'all');
+  // الفئات روابط حقيقية (/shop/<الفئة>) - كل فئة صفحة مستقلة جوجل يقدر
+  // يأرشفها بعنوانها، بدل فلتر في المتصفح على نفس الصفحة.
+  const filter = activeCategory ?? 'all';
   const [sort, setSort] = useState('newest');
 
   const filtered = useMemo(() => {
@@ -50,19 +52,18 @@ export function ShopContent({
           aria-label="تصفية حسب الفئة"
           className="-mx-4 px-4 sm:mx-0 sm:px-0 flex sm:flex-wrap items-center gap-2 overflow-x-auto sm:overflow-visible snap-x scroll-px-4 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          <button type="button" onClick={() => setFilter('all')} aria-pressed={filter === 'all'} className={chip(filter === 'all')}>
+          <Link href="/shop" aria-current={filter === 'all' ? 'page' : undefined} className={cn(chip(filter === 'all'), 'inline-flex items-center')}>
             الكل
-          </button>
+          </Link>
           {categories.map((cat) => (
-            <button
+            <Link
               key={cat.id}
-              type="button"
-              onClick={() => setFilter(cat.slug)}
-              aria-pressed={filter === cat.slug}
-              className={chip(filter === cat.slug)}
+              href={`/shop/${encodeURIComponent(cat.slug)}`}
+              aria-current={filter === cat.slug ? 'page' : undefined}
+              className={cn(chip(filter === cat.slug), 'inline-flex items-center')}
             >
               {cat.name_ar}
-            </button>
+            </Link>
           ))}
         </div>
 
@@ -96,13 +97,12 @@ export function ShopContent({
       {filtered.length === 0 ? (
         <div className="text-center py-20">
           <p className="font-arabic text-foreground">مفيش منتجات في الفئة دي دلوقتي</p>
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className="mt-4 font-arabic text-sm text-foreground underline underline-offset-4 decoration-foreground/30 hover:decoration-foreground transition-[text-decoration-color]"
+          <Link
+            href="/shop"
+            className="inline-block mt-4 font-arabic text-sm text-foreground underline underline-offset-4 decoration-foreground/30 hover:decoration-foreground transition-[text-decoration-color]"
           >
             عرض كل المنتجات
-          </button>
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-8 sm:gap-x-6 lg:gap-x-8 lg:gap-y-14">
@@ -112,20 +112,5 @@ export function ShopContent({
         </div>
       )}
     </div>
-  );
-}
-
-// الصفحة نفسها بقت ثابتة (بتتكاش) عشان مبتقراش searchParams على السيرفر.
-// الفئة المختارة من الرابط (?category=...) بتتقري هنا في المتصفح.
-function ShopContentFromUrl(props: { products: Product[]; categories: Category[] }) {
-  const category = useSearchParams().get('category') ?? undefined;
-  return <ShopContent key={category ?? 'all'} {...props} activeCategory={category} />;
-}
-
-export function ShopContentWithUrlFilter(props: { products: Product[]; categories: Category[] }) {
-  return (
-    <Suspense fallback={<ShopContent {...props} />}>
-      <ShopContentFromUrl {...props} />
-    </Suspense>
   );
 }

@@ -29,6 +29,18 @@ const nextConfig = {
   },
   // هيدرز أمان لكل الصفحات: بتمنع تضمين الموقع في iframe على موقع تاني
   // (clickjacking)، وبتجبر HTTPS، وبتمنع المتصفح من تخمين نوع الملفات.
+  // الروابط القديمة للفئات (/shop?category=x) بتتحول للصفحة الجديدة (/shop/x)
+  // عشان أي رابط اتشارك أو إعلان قديم يفضل شغال
+  async redirects() {
+    return [
+      {
+        source: '/shop',
+        has: [{ type: 'query', key: 'category', value: '(?<cat>[^&]+)' }],
+        destination: '/shop/:cat',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

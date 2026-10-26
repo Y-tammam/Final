@@ -11,8 +11,8 @@ const config: Config = {
     extend: {
       fontFamily: {
         display: ['var(--font-playfair)', 'var(--font-messiri)', 'Georgia', 'serif'],
-        body: ['var(--font-jakarta)', 'var(--font-cairo)', 'system-ui', 'sans-serif'],
-        arabic: ['var(--font-cairo)', 'var(--font-readex)', 'system-ui', 'sans-serif'],
+        body: ['var(--font-cairo)', 'system-ui', 'sans-serif'],
+        arabic: ['var(--font-cairo)', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -57,6 +57,16 @@ const config: Config = {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         shimmer: 'shimmer 1.5s linear infinite',
+      },
+      // Tailwind 3.3 مفيهوش الخطوات دي (اتضافت في 3.4) - من غيرها كلاس زي
+      // text-background/65 مبيتولدش خالص والنص بيرجع لونه الافتراضي
+      opacity: {
+        '15': '0.15',
+        '35': '0.35',
+        '45': '0.45',
+        '55': '0.55',
+        '65': '0.65',
+        '85': '0.85',
       },
       transitionTimingFunction: {
         luxury: 'cubic-bezier(0.16, 1, 0.3, 1)',

@@ -16,7 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.3,
     })),
     ...categories.map((c) => ({
-      url: `${SITE_URL}/shop?category=${encodeURIComponent(c.slug)}`,
+      url: `${SITE_URL}/shop/${encodeURIComponent(c.slug)}`,
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     })),
