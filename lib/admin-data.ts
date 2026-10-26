@@ -1,10 +1,10 @@
 import { supabaseServer } from './supabase-server';
-import type { Order, Product } from './types';
+import type { DiscountCode, Order, Product } from './types';
 
 export async function getDashboardStats() {
   const supabase = await supabaseServer();
   const [ordersRes, productsRes, variantsRes] = await Promise.all([
-    supabase.from('orders').select('*'),
+    supabase.from('orders').select('id, order_number, customer_name, governorate, total_amount_egp, order_status, payment_method, created_at'),
     supabase.from('products').select('id, title_ar, status, price_egp, sale_price_egp'),
     supabase.from('product_variants').select('id, product_id, size, color_ar, stock_quantity, sku, product:products(title_ar)'),
   ]);
@@ -110,4 +110,14 @@ export async function getCategoriesAdmin() {
   const { data, error } = await supabase.from('categories').select('*').order('name_ar');
   if (error) return [];
   return data ?? [];
+}
+
+export async function getDiscountCodesAdmin(): Promise<DiscountCode[]> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase
+    .from('discount_codes')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return (data ?? []) as DiscountCode[];
 }

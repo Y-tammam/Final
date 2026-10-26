@@ -71,7 +71,39 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
     [shippingRates, form.governorate]
   );
   const shippingFee = selectedRate?.cost_egp ?? 0;
-  const total = subtotal + shippingFee;
+
+  // كود الخصم: preview_discount بيرجع قيمة الخصم للعرض بس، والحساب
+  // الحقيقي بيحصل تاني جوه place_order على السيرفر.
+  const [discountInput, setDiscountInput] = useState('');
+  const [discount, setDiscount] = useState<{ code: string; amount: number } | null>(null);
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+
+  // لو السلة اتغيرت بعد تطبيق الكود، الخصم بيتلغي عشان يتحسب تاني صح
+  useEffect(() => {
+    setDiscount(null);
+  }, [subtotal]);
+
+  const applyDiscount = async () => {
+    const code = discountInput.trim().toUpperCase();
+    if (!code) return;
+    setApplyingDiscount(true);
+    const { data, error } = await supabase.rpc('preview_discount', {
+      p_code: code,
+      p_subtotal: subtotal,
+      p_phone: form.customer_phone.trim() || null,
+    });
+    setApplyingDiscount(false);
+    if (error) {
+      setDiscount(null);
+      toast.error(error.message);
+      return;
+    }
+    setDiscount({ code, amount: Number(data) });
+    toast.success('تم تطبيق كود الخصم');
+  };
+
+  const discountAmount = discount?.amount ?? 0;
+  const total = subtotal - discountAmount + shippingFee;
 
   const update = (key: keyof typeof form, value: string | boolean) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -114,6 +146,7 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
           p_payment_method: form.payment_method,
           p_allow_inspection: form.allow_inspection,
           p_items: items.map((item) => ({ variant_id: item.variant.id, quantity: item.quantity })),
+          p_discount_code: discount?.code ?? null,
         })
         .single<{ order_id: string; order_number: number; total_amount_egp: number }>();
 
@@ -586,6 +619,46 @@ export function CheckoutForm({ shippingRates }: { shippingRates: ShippingRate[] 
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-arabic">
                   <Truck className="w-3.5 h-3.5 text-accent" strokeWidth={1.5} />
                   {selectedRate.estimated_days}
+                </div>
+              )}
+            </div>
+
+            <div className="py-4 border-t border-border space-y-3">
+              {discount ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-arabic text-sm text-success flex items-center gap-2">
+                    خصم <span className="font-body tracking-wider" dir="ltr">{discount.code}</span>
+                    <button type="button" onClick={() => setDiscount(null)} className="text-xs text-muted-foreground underline">
+                      إلغاء
+                    </button>
+                  </span>
+                  <span className="font-body text-sm text-success num-rtl">-{priceEGP(discount.amount)} ج.م</span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        applyDiscount();
+                      }
+                    }}
+                    placeholder="كود الخصم"
+                    maxLength={30}
+                    className="flex-1 min-w-0 bg-background border border-border rounded-sm px-3 py-2 font-arabic text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyDiscount}
+                    disabled={applyingDiscount || !discountInput.trim()}
+                    className="font-arabic text-sm border border-foreground px-4 py-2 rounded-sm hover:bg-foreground hover:text-primary-foreground transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {applyingDiscount && <Loader2 className="w-4 h-4 animate-spin" />}
+                    تطبيق
+                  </button>
                 </div>
               )}
             </div>

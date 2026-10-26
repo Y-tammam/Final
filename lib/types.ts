@@ -50,6 +50,8 @@ export type Order = {
   total_amount_egp: number;
   payment_method: string;
   payment_receipt_url: string | null;
+  discount_code: string | null;
+  discount_egp: number;
   order_status: string;
   allow_inspection: boolean;
   notes: string | null;
@@ -79,4 +81,20 @@ export type CartItem = {
   product: Product;
   variant: ProductVariant;
   quantity: number;
+};
+
+export type DiscountCode = {
+  id: string;
+  code: string;
+  discount_type: 'percent' | 'fixed';
+  value: number;
+  min_order_egp: number;
+  max_discount_egp: number | null;
+  starts_at: string | null;
+  expires_at: string | null;
+  usage_limit: number | null;
+  used_count: number;
+  one_per_phone: boolean;
+  is_active: boolean;
+  created_at: string;
 };

@@ -17,6 +17,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   // المقفول بـ RLS) بدل user.user_metadata?.role لأن الأخير قابل
   // للتعديل من المستخدم نفسه من المتصفح ومكنش بيحمي حاجة فعلياً.
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [role, setRole] = useState<'owner' | 'staff' | null>(null);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
 
   useEffect(() => {
@@ -32,10 +33,12 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { data, error } = await supabase.rpc('is_admin');
+      // get_my_role(): 'owner' (المالك) أو 'staff' (موظف) أو null
+      const { data, error } = await supabase.rpc('get_my_role');
       if (!active) return;
 
-      const adminConfirmed = !error && data === true;
+      const adminConfirmed = !error && (data === 'owner' || data === 'staff');
+      setRole(adminConfirmed ? data : null);
       setIsAdmin(adminConfirmed);
       setCheckingAdmin(false);
 
@@ -62,7 +65,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-secondary/30 flex" dir="rtl">
-      <AdminSidebar />
+      <AdminSidebar role={role ?? 'staff'} />
       <div className="flex-1 min-w-0 overflow-x-hidden">
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </div>

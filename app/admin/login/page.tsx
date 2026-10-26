@@ -36,19 +36,19 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // مصدر الحقيقة الوحيد لتحديد الأدمن هو is_admin() في قاعدة
+      // مصدر الحقيقة الوحيد لتحديد الأدمن هو get_my_role() في قاعدة
       // البيانات (جدول admin_users)، مش user_metadata القابل للتعديل
-      // من المستخدم نفسه.
-      const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin');
+      // من المستخدم نفسه. owner = المالك، staff = موظف (الطلبات بس).
+      const { data: role, error: rpcError } = await supabase.rpc('get_my_role');
 
-      if (rpcError || !isAdmin) {
+      if (rpcError || !role) {
         await supabase.auth.signOut();
         toast.error('عذراً، هذا الحساب ليس لديه صلاحيات لوحة التحكم');
         return;
       }
 
       toast.success('تم تسجيل الدخول بنجاح');
-      router.push('/admin/dashboard');
+      router.push(role === 'staff' ? '/admin/orders' : '/admin/dashboard');
       router.refresh();
     } catch (err: any) {
       toast.error(err.message || 'حدث خطأ أثناء تسجيل الدخول');

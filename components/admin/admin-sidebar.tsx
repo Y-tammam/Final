@@ -4,19 +4,22 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { BrandLogo } from '@/components/ui/brand-logo';
-import { LayoutDashboard, Package, ShoppingCart, Truck, LogOut, Store, X, Layers } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Truck, LogOut, Store, X, Layers, TicketPercent, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
+// staffAllowed: الصفحات اللي الموظف (staff) يقدر يشوفها. الباقي للمالك بس.
 const NAV = [
   { href: '/admin/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
   { href: '/admin/products', label: 'المنتجات', icon: Package },
   { href: '/admin/categories', label: 'الفئات', icon: Layers },
-  { href: '/admin/orders', label: 'الطلبات', icon: ShoppingCart },
+  { href: '/admin/orders', label: 'الطلبات', icon: ShoppingCart, staffAllowed: true },
+  { href: '/admin/discounts', label: 'أكواد الخصم', icon: TicketPercent },
   { href: '/admin/shipping', label: 'الشحن', icon: Truck },
+  { href: '/admin/team', label: 'الفريق والصلاحيات', icon: Users },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({ role }: { role: 'owner' | 'staff' }) {
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useAuth();
@@ -37,7 +40,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {NAV.map((item) => {
+        {NAV.filter((item) => role === 'owner' || item.staffAllowed).map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link

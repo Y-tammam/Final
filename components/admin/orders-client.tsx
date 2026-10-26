@@ -295,6 +295,14 @@ function OrderDrawer({
               <span className="font-arabic text-sm text-muted-foreground">الشحن</span>
               <span className="font-body text-sm num-rtl">{priceEGP(order.shipping_fee_egp)}</span>
             </div>
+            {order.discount_code && Number(order.discount_egp) > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="font-arabic text-sm text-muted-foreground">
+                  خصم <span className="font-body tracking-wider" dir="ltr">{order.discount_code}</span>
+                </span>
+                <span className="font-body text-sm num-rtl text-success">-{priceEGP(order.discount_egp)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <span className="font-arabic text-base font-semibold">الإجمالي</span>
               <span className="font-body text-lg font-semibold num-rtl">{priceEGP(order.total_amount_egp)} ج.م</span>
