@@ -88,19 +88,19 @@ GRANT EXECUTE ON FUNCTION get_my_role() TO authenticated, anon;
 -- الموظف يقرا الطلبات ويحدّثها (التحديث مقصور على الحالة بالـ trigger تحت)
 DROP POLICY IF EXISTS "admin_read_orders" ON orders;
 CREATE POLICY "admin_read_orders" ON orders FOR SELECT
-  TO authenticated USING (is_staff());
+  TO authenticated USING ((select is_staff()));
 
 DROP POLICY IF EXISTS "admin_update_orders" ON orders;
 CREATE POLICY "admin_update_orders" ON orders FOR UPDATE
-  TO authenticated USING (is_staff()) WITH CHECK (is_staff());
+  TO authenticated USING ((select is_staff())) WITH CHECK ((select is_staff()));
 
 DROP POLICY IF EXISTS "admin_read_order_items" ON order_items;
 CREATE POLICY "admin_read_order_items" ON order_items FOR SELECT
-  TO authenticated USING (is_staff());
+  TO authenticated USING ((select is_staff()));
 
 DROP POLICY IF EXISTS "anon_read_products" ON products;
 CREATE POLICY "anon_read_products" ON products FOR SELECT
-  TO anon, authenticated USING (status = 'active' OR is_staff());
+  TO anon, authenticated USING (status = 'active' OR (select is_staff()));
 
 -- الموظف ميقدرش يغيّر غير حالة الطلب
 CREATE OR REPLACE FUNCTION orders_guard_staff_update()
@@ -214,7 +214,7 @@ CREATE POLICY "public_read_store_settings" ON store_settings FOR SELECT
   TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "admin_update_store_settings" ON store_settings;
 CREATE POLICY "admin_update_store_settings" ON store_settings FOR UPDATE
-  TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+  TO authenticated USING ((select is_admin())) WITH CHECK ((select is_admin()));
 
 -- =====================================================================
 -- أكواد الخصم
@@ -241,7 +241,7 @@ ALTER TABLE discount_codes ENABLE ROW LEVEL SECURITY;
 -- بيتعاملوا معاه من خلال preview_discount / place_order بس.
 DROP POLICY IF EXISTS "admin_all_discount_codes" ON discount_codes;
 CREATE POLICY "admin_all_discount_codes" ON discount_codes FOR ALL
-  TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+  TO authenticated USING ((select is_admin())) WITH CHECK ((select is_admin()));
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_ip TEXT;
 CREATE INDEX IF NOT EXISTS idx_orders_ip_created ON orders(client_ip, created_at DESC) WHERE client_ip IS NOT NULL;
@@ -251,17 +251,27 @@ ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_title TEXT;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_size TEXT;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_color TEXT;
 
+-- فهارس على مفاتيح order_items (حذف منتج أو مقاس كان بيعمل scan للجدول كله)
+CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_variant ON order_items(variant_id);
+
+-- العميلة بتقرا طلباتها هي بس. (select auth.uid()) بتتحسب مرة واحدة في
+-- الاستعلام بدل مرة لكل صف - توصية Supabase لأداء RLS.
+DROP POLICY IF EXISTS "customer_read_own_orders" ON orders;
+CREATE POLICY "customer_read_own_orders" ON orders FOR SELECT
+  TO authenticated USING ((select auth.uid()) = user_id);
+
 -- العميلة تقرا عناصر طلباتها هي بس (صفحة حسابي)
 DROP POLICY IF EXISTS "customer_read_own_order_items" ON order_items;
 CREATE POLICY "customer_read_own_order_items" ON order_items FOR SELECT
   TO authenticated
-  USING (EXISTS (SELECT 1 FROM orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
+  USING (EXISTS (SELECT 1 FROM orders o WHERE o.id = order_id AND o.user_id = (select auth.uid())));
 
 -- مقاسات/ألوان المنتجات المسودة مش للعامة
 DROP POLICY IF EXISTS "anon_read_variants" ON product_variants;
 CREATE POLICY "anon_read_variants" ON product_variants FOR SELECT
   TO anon, authenticated
-  USING (EXISTS (SELECT 1 FROM products p WHERE p.id = product_id AND (p.status = 'active' OR is_staff())));
+  USING ((select is_staff()) OR EXISTS (SELECT 1 FROM products p WHERE p.id = product_id AND p.status = 'active'));
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_code TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_egp NUMERIC(10,2) NOT NULL DEFAULT 0;
