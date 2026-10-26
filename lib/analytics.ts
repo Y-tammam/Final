@@ -1,6 +1,6 @@
 // تتبع Meta Pixel (فيسبوك/انستجرام). من غير الـ Pixel، الإعلانات الممولة
 // مش بتعرف مين اشترى فعلاً، فمش بتقدر تحسّن الاستهداف.
-// التفعيل: حطي NEXT_PUBLIC_META_PIXEL_ID في متغيرات البيئة على Netlify.
+// التفعيل: حطي NEXT_PUBLIC_META_PIXEL_ID في متغيرات البيئة على Vercel (Settings > Environment Variables).
 // لو مش موجود، كل الدوال هنا مبتعملش أي حاجة.
 
 type Fbq = (...args: unknown[]) => void;

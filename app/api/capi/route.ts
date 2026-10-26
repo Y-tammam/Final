@@ -8,7 +8,7 @@ import { SITE_URL } from '@/lib/site';
  * المتصفح، فالإعلانات بتتعلم من بيانات ناقصة. الحدث هنا بيتبعت بنفس
  * event_id بتاع المتصفح، فميتا بتعدّه مرة واحدة بس (deduplication).
  *
- * التفعيل على Netlify (Environment variables):
+ * التفعيل على Vercel (Settings > Environment Variables):
  *   NEXT_PUBLIC_META_PIXEL_ID   رقم الـ Pixel
  *   META_CAPI_TOKEN             من Events Manager > Settings > Conversions API
  *   SUPABASE_SERVICE_ROLE_KEY   (المفتاح الجديد بعد التغيير - سري، سيرفر بس)
